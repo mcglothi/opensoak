@@ -22,13 +22,3 @@ def control_relay(gpio_output, state):
         GPIO.output(gpio_output, GPIO.HIGH)  # Deactivate the relay
     else:
         print(f"Invalid state '{state}'. Use 'on' or 'off'.")
-
-
-# Example usage of the function
-try:
-    control_relay(4, "on")
-    control_relay(27, "off")
-except KeyboardInterrupt:
-    # Clean up when the program is terminated by Ctrl+C
-    print("\nCleaning up and exiting...")
-    GPIO.cleanup()
