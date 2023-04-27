@@ -1,0 +1,23 @@
+----------------------------------------------------------------------------------
+Control board parts
+----------------------------------------------------------------------------------
+Case: DJC 7.9" x 11.8" (https://a.co/d/iIPU8SD)
+Pi: Raspberry Pi model 4b (2GB
+GPIO block: OONO ultra-small RPi terminal block (https://a.co/d/0IdBMO4)
+ADC: Adafruit MCP3008 (https://a.co/d/7r9wuLc)
+Relay board: Sunfounder 8 channel 5V relay board (https://a.co/d/bh0gw1J)
+High-current relays: Potter & Brumfield T92P11D22-12 (https://a.co/d/2gzUg8a)
+USB power supply: re-purposed Samsung USB charger
+Large relay power supply: re-purposed 12v wall charger
+Terminal blocks: Milapeak 8 position terminal blocks (https://a.co/d/9QwIYZC)
+
+----------------------------------------------------------------------------------
+Hot tub parts
+----------------------------------------------------------------------------------
+Jet pump: Watkins Model 36745 120V
+Circulation pump: 
+Heater: Watkins No-Fault 6KW 240V 
+Light:
+Flow sensor: Sundance Spas Jacuzzi flow switch (https://a.co/d/3ovgfMb)
+Thermistors: Watkins hi-limit / temp sensor kit (https://a.co/d/26eNafd)
+Ozone: Aquatic spa ozone generator (https://a.co/d/4ayxkij)
