@@ -1,6 +1,7 @@
 import adc
 import relay
 
+import globals_
 
 # Example ADC usage
 temp_c = read_temperature(0, 'C')
