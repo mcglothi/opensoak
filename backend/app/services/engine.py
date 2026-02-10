@@ -1,13 +1,19 @@
 import threading
 import time
+import os
 from datetime import datetime
 from ..db.session import SessionLocal
 from ..db.models import Settings, TemperatureLog, SystemState
-from ...hardware.controller import HotTubController
 
 class HotTubEngine:
     def __init__(self):
-        self.controller = HotTubController()
+        if os.getenv("SIMULATE_HARDWARE", "False").lower() == "true":
+            from ...hardware.mock_controller import MockHotTubController
+            self.controller = MockHotTubController()
+        else:
+            from ...hardware.controller import HotTubController
+            self.controller = HotTubController()
+            
         self.running = False
         self.thread = None
         self.poll_interval = 1.0 # seconds
