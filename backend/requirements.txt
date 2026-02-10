@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pydantic-settings
+adafruit-circuitpython-mcp3xxx
+RPi.GPIO
+gpiozero
+numpy
+apscheduler
+python-multipart
