@@ -41,7 +41,8 @@ class HotTubController:
         self.spi = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI)
         self.cs = digitalio.DigitalInOut(board.CE0)
         self.mcp = MCP.MCP3008(self.spi, self.cs)
-        self.chan = AnalogIn(self.mcp, MCP.P0)
+        self.chan0 = AnalogIn(self.mcp, MCP.P0)
+        self.chan1 = AnalogIn(self.mcp, MCP.P1) # Placeholder for Hi-Limit
 
         # Pre-calculate Steinhart-Hart coefficients
         self.coefficients = self._calculate_coefficients(self.TEMP_VALUES, self.R_VALUES)
@@ -52,9 +53,10 @@ class HotTubController:
         A = np.vstack([np.ones(3), ln_resistances, ln_resistances ** 3]).T
         return np.linalg.lstsq(A, inv_temp_values, rcond=None)[0]
 
-    def get_temperature(self) -> float:
+    def get_temperature(self, sensor: int = 0) -> float:
         try:
-            adc_voltage = self.chan.voltage
+            chan = self.chan0 if sensor == 0 else self.chan1
+            adc_voltage = chan.voltage
             if adc_voltage <= 0: return 0.0
             resistance = self.SERIES_RESISTOR * (self.VREF - adc_voltage) / adc_voltage
             ln_resistance = np.log(resistance)
@@ -63,8 +65,15 @@ class HotTubController:
             temp_fahrenheit = (temp_celsius + self.TEMP_OFFSET) * 9/5 + 32
             return temp_fahrenheit
         except Exception as e:
-            print(f"Error reading temperature: {e}")
+            print(f"Error reading temperature on sensor {sensor}: {e}")
             return 0.0
+
+    def is_flow_detected(self) -> bool:
+        """
+        Placeholder for flow switch logic. 
+        Returns True for now until we know the GPIO pin.
+        """
+        return True
 
     def set_relay(self, pin: int, state: bool):
         """

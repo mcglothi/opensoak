@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..db.session import SessionLocal
 from ..db.models import SystemState
+from ..services.engine import engine as hottub_engine
 
 router = APIRouter()
 
@@ -36,3 +37,8 @@ def update_control(update: ControlUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(state)
     return state
+
+@router.post("/reset-faults")
+def reset_faults():
+    hottub_engine.reset_faults()
+    return {"status": "faults reset"}

@@ -64,6 +64,15 @@ function App() {
     }
   };
 
+  const resetFaults = async () => {
+    try {
+      await axios.post(`${API_BASE}/control/reset-faults`);
+      fetchData();
+    } catch (err) {
+      console.error("Error resetting faults", err);
+    }
+  };
+
   const updateSetPoint = async (delta) => {
     try {
       const newTemp = settings.set_point + delta;
@@ -90,9 +99,20 @@ function App() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
             OpenSoak
           </h1>
-          <p className="text-slate-400 text-sm flex items-center">
-            <ShieldCheck className="w-3 h-3 mr-1 text-emerald-500" /> System Active & Secure
-          </p>
+          <div className="flex items-center space-x-4">
+            <p className="text-slate-400 text-sm flex items-center">
+              <ShieldCheck className={`w-3 h-3 mr-1 ${status?.safety_status === 'OK' ? 'text-emerald-500' : 'text-red-500'}`} /> 
+              System: {status?.safety_status}
+            </p>
+            {status?.safety_status !== 'OK' && (
+              <button 
+                onClick={resetFaults}
+                className="text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded border border-red-500/50 transition"
+              >
+                Reset Faults
+              </button>
+            )}
+          </div>
         </div>
         <div className="bg-slate-900 px-4 py-2 rounded-full border border-slate-800 flex items-center space-x-2">
           <Clock className="w-4 h-4 text-blue-400" />

@@ -14,9 +14,10 @@ class MockHotTubController:
         self.pins = [self.CIRC_PUMP, self.HEATER, self.JET_PUMP, self.LIGHT, self.OZONE]
         self.state = {pin: False for pin in self.pins}
         self.simulated_temp = 100.0 # Start at 100 degrees
+        self.flow_detected = True
         print("🔧 Running in HARDWARE SIMULATION MODE")
 
-    def get_temperature(self) -> float:
+    def get_temperature(self, sensor: int = 0) -> float:
         # Simulate physics: 
         # If heater is on, temp goes up slowly. 
         # Otherwise, it drops slowly toward ambient (70).
@@ -27,7 +28,16 @@ class MockHotTubController:
                 self.simulated_temp -= 0.01
         
         # Add a tiny bit of noise
-        return self.simulated_temp + (random.random() * 0.1)
+        reading = self.simulated_temp + (random.random() * 0.1)
+        
+        # If it's sensor 1 (Hi-Limit), make it slightly different or identical for now
+        if sensor == 1:
+            return reading + 0.5
+        return reading
+
+    def is_flow_detected(self) -> bool:
+        # Flow should only exist if Circ Pump is ON in simulation
+        return self.state[self.CIRC_PUMP]
 
     def set_relay(self, pin: int, state: bool):
         # Safety Interlock Simulation

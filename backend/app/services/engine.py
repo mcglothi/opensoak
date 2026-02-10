@@ -20,7 +20,11 @@ class HotTubEngine:
         self.last_log_time = 0
         self.log_interval = 60 # log temp every minute
         self.current_temp = 0.0
+        self.hi_limit_temp = 0.0
         self.safety_status = "OK"
+        self.flow_error_count = 0
+        self.system_locked = False
+        self.circ_start_time = 0
 
     def start(self):
         self.running = True
@@ -33,6 +37,11 @@ class HotTubEngine:
             self.thread.join()
         self.controller.cleanup()
 
+    def reset_faults(self):
+        self.flow_error_count = 0
+        self.system_locked = False
+        self.safety_status = "OK"
+
     def _run(self):
         while self.running:
             try:
@@ -43,6 +52,9 @@ class HotTubEngine:
             time.sleep(self.poll_interval)
 
     def _tick(self):
+        if self.system_locked:
+            return
+
         db = SessionLocal()
         try:
             settings = db.query(Settings).first()
@@ -59,64 +71,67 @@ class HotTubEngine:
                 db.commit()
                 db.refresh(state)
 
-            self.current_temp = self.controller.get_temperature()
-            self.safety_status = "OK"
+            self.current_temp = self.controller.get_temperature(0)
+            self.hi_limit_temp = self.controller.get_temperature(1)
             
-            # --- SAFETY CHECKS ---
-            # 1. Absolute Max Temperature Cutoff
-            if self.current_temp >= settings.max_temp_limit:
-                self.safety_status = "CRITICAL: HIGH TEMP"
+            # --- HI-LIMIT FAULT CHECK ---
+            if self.current_temp >= 110.0 or self.hi_limit_temp >= 110.0:
+                self.safety_status = "CRITICAL: HI-LIMIT FAULT"
+                self.system_locked = True
                 self.controller.emergency_shutdown()
-                # Force state in DB to OFF for safety components
-                state.heater = False
-                state.circ_pump = False
-                db.commit()
                 return
 
-            # --- LOGIC ---
-            
-            # Circulation Pump Logic
-            # It should be ON if: 
-            # a) The user wants it ON
-            # b) The heater is trying to run
-            # c) The ozone is trying to run (usually they go together)
+            # --- CIRCULATION & FLOW LOGIC ---
             needs_circ = state.circ_pump or state.heater or state.ozone
             
-            # Update Hardware
-            self.controller.set_relay(self.controller.CIRC_PUMP, needs_circ)
-            time.sleep(0.1) # Small delay for relay to settle
+            is_circ_currently_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
             
-            is_circ_actually_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
+            if needs_circ:
+                if not is_circ_currently_on:
+                    self.controller.set_relay(self.controller.CIRC_PUMP, True)
+                    self.circ_start_time = time.time()
+                    return # Wait for next tick
+                
+                # Logic Diagram: Wait 5 seconds before checking flow
+                if time.time() - self.circ_start_time > 5:
+                    if not self.controller.is_flow_detected():
+                        self.flow_error_count += 1
+                        print(f"FLOW ERROR {self.flow_error_count}/5")
+                        if self.flow_error_count >= 5:
+                            self.safety_status = "STOP: NO FLOW DETECTED"
+                            self.system_locked = True
+                            self.controller.emergency_shutdown()
+                            return
+                    else:
+                        self.flow_error_count = 0 # Reset count on success
+            else:
+                self.controller.set_relay(self.controller.CIRC_PUMP, False)
+                self.flow_error_count = 0
 
-            # Heater Logic (Hysteresis)
-            if state.heater:
-                # Interlock: Heater requires Circulation
-                if not is_circ_actually_on:
-                    self.safety_status = "HEATER WAITING FOR CIRC"
+            # --- HEATER LOGIC (Hysteresis) ---
+            is_circ_actually_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
+            is_flow_ok = self.controller.is_flow_detected()
+
+            if state.heater and is_circ_actually_on and is_flow_ok:
+                target = settings.set_point
+                upper = target + settings.hysteresis_upper
+                lower = target - settings.hysteresis_lower
+                
+                if self.current_temp >= upper:
                     self.controller.set_relay(self.controller.HEATER, False)
-                else:
-                    target = settings.set_point
-                    upper = target + settings.hysteresis_upper
-                    lower = target - settings.hysteresis_lower
-                    
-                    is_heater_actually_on = self.controller.get_relay_state(self.controller.HEATER)
-                    
-                    if self.current_temp >= upper:
-                        self.controller.set_relay(self.controller.HEATER, False)
-                    elif self.current_temp <= lower:
-                        self.controller.set_relay(self.controller.HEATER, True)
+                elif self.current_temp <= lower:
+                    self.controller.set_relay(self.controller.HEATER, True)
             else:
                 self.controller.set_relay(self.controller.HEATER, False)
 
-            # Other Components
-            self.controller.set_relay(self.controller.JET_PUMP, state.jet_pump)
-            self.controller.set_relay(self.controller.LIGHT, state.light)
-            
-            # Ozone follows Circ Pump logic but respect user toggle too
-            if state.ozone and is_circ_actually_on:
+            # --- OZONE & OTHER ---
+            if state.ozone and is_circ_actually_on and is_flow_ok:
                 self.controller.set_relay(self.controller.OZONE, True)
             else:
                 self.controller.set_relay(self.controller.OZONE, False)
+
+            self.controller.set_relay(self.controller.JET_PUMP, state.jet_pump)
+            self.controller.set_relay(self.controller.LIGHT, state.light)
 
             # --- LOGGING ---
             if time.time() - self.last_log_time >= self.log_interval:
@@ -124,6 +139,9 @@ class HotTubEngine:
                 db.add(log)
                 db.commit()
                 self.last_log_time = time.time()
+
+        finally:
+            db.close()
 
         finally:
             db.close()
