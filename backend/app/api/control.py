@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..db.session import SessionLocal
-from ..db.models import SystemState, UsageLog
+from ..db.models import SystemState, UsageLog, Settings
 from ..services.engine import engine as hottub_engine
 
 from datetime import datetime, timedelta

@@ -283,6 +283,30 @@ function App() {
   const currentTemp = status?.current_temp?.toFixed(1) || "--";
   const isHeaterOn = status?.actual_relay_state?.heater;
 
+  const [timeLeft, setTimeLeft] = useState(null);
+
+  useEffect(() => {
+    if (status?.desired_state?.manual_soak_active && status?.desired_state?.manual_soak_expires) {
+      const timer = setInterval(() => {
+        const now = new Date();
+        const expires = new Date(status.desired_state.manual_soak_expires);
+        const diff = expires - now;
+        
+        if (diff <= 0) {
+          setTimeLeft(null);
+          clearInterval(timer);
+        } else {
+          const mins = Math.floor(diff / 60000);
+          const secs = Math.floor((diff % 60000) / 1000);
+          setTimeLeft(`${mins}:${secs < 10 ? '0' : ''}${secs}`);
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    } else {
+      setTimeLeft(null);
+    }
+  }, [status]);
+
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-8 text-slate-100 font-sans relative overflow-hidden">
       {/* Decorative Background Blobs */}
@@ -359,6 +383,12 @@ function App() {
             <div className="flex items-baseline">
               <span className={`text-8xl font-black text-white transition-all ${isHeaterOn ? 'animate-float' : ''}`}>{currentTemp}</span>
               <span className="text-4xl font-light text-slate-500 ml-2">°F</span>
+              {timeLeft && (
+                <div className="ml-8 flex flex-col items-center justify-center bg-slate-950/50 border border-blue-500/30 px-4 py-2 rounded-2xl animate-pulse">
+                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">Time Remaining</span>
+                  <span className="text-3xl font-mono font-bold text-white">{timeLeft}</span>
+                </div>
+              )}
             </div>
             
             <div className="mt-8 flex items-center space-x-4">
@@ -457,7 +487,7 @@ function App() {
                 <div className="flex items-center space-x-4">
                   <Zap className={`text-orange-400 w-5 h-5 ${isHeaterOn ? 'animate-pulse' : ''}`} />
                   <div>
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-tight">Quick Heat</h3>
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-tight">Soak Now!</h3>
                     <p className="text-[10px] text-slate-500">Override thermostat</p>
                   </div>
                 </div>
@@ -475,7 +505,7 @@ function App() {
                     <input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-12 bg-slate-900 border border-slate-800 rounded text-[10px] p-1 text-slate-300 outline-none focus:border-slate-700" />
                   </div>
                   <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold uppercase px-4 py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20">
-                    Heat Now
+                    Soak!
                   </button>
                 </form>
               </div>
