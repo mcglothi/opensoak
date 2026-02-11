@@ -760,9 +760,10 @@ function App() {
                           icon={<Droplets />} 
                           active={status?.actual_relay_state?.circ_pump} 
                           loading={status?.desired_state?.circ_pump !== status?.actual_relay_state?.circ_pump}
+                          disabled={!status?.system_locked} // Always ON unless system is locked/shutdown
                           onToggle={(v) => toggleControl('circ_pump', v)}
                           color="emerald"
-                          tooltip="Toggle water circulation and filtration."
+                          tooltip="Continuous water circulation. Only disabled during maintenance or shutdown."
                         />
                         <ControlToggle 
                           label="Ozone" 
@@ -1083,14 +1084,17 @@ function App() {
                           onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) })}
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                         />
+                        <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl w-48">
+                          Your local electricity rate per kilowatt-hour. Used for cost estimation.
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
-                          { label: "Heater Watts", key: "heater_watts" },
-                          { label: "Circ Pump Watts", key: "circ_pump_watts" },
-                          { label: "Jet Pump Watts", key: "jet_pump_watts" },
-                          { label: "Light Watts", key: "light_watts" },
-                          { label: "Ozone Watts", key: "ozone_watts" }
+                          { label: "Heater Watts", key: "heater_watts", tip: "Power draw of the main heating element (usually 5500W)." },
+                          { label: "Circ Pump Watts", key: "circ_pump_watts", tip: "Power draw of the low-speed circulation pump." },
+                          { label: "Jet Pump Watts", key: "jet_pump_watts", tip: "Power draw of the high-speed therapy pump." },
+                          { label: "Light Watts", key: "light_watts", tip: "Power draw of the underwater lighting." },
+                          { label: "Ozone Watts", key: "ozone_watts", tip: "Power draw of the ozone purification system." }
                         ].map(p => (
                           <div key={p.key} className="group relative">
                             <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter">{p.label}</label>
@@ -1100,6 +1104,9 @@ function App() {
                               onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.key]: parseFloat(e.target.value) })}
                               className="w-full bg-slate-900 text-xs p-2 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                             />
+                            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 z-50 shadow-2xl w-40">
+                              {p.tip}
+                            </div>
                           </div>
                         ))}
                       </div>
