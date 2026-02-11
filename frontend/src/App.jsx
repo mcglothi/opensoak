@@ -68,7 +68,7 @@ function App() {
     fetchData();
     const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [historyLimit]);
 
   const toggleControl = async (key, val) => {
     if (role === 'viewer') return;
@@ -296,30 +296,31 @@ function App() {
             </div>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history} margin={{ left: -20, right: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="time" hide />
-                <YAxis 
-                  domain={[70, 115]} 
-                  stroke="#475569" 
-                  fontSize={10} 
-                  tickFormatter={(val) => `${val}°`}
-                />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
-                  itemStyle={{ color: '#60a5fa' }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  name="Temperature"
-                  stroke="#3b82f6" 
-                  strokeWidth={3} 
-                  dot={false} 
-                  animationDuration={1000}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+                <LineChart data={history} margin={{ left: -20, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="time" hide />
+                  <YAxis 
+                    domain={[70, 115]} 
+                    stroke="#475569" 
+                    fontSize={10} 
+                    tickFormatter={(val) => `${val}°`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
+                    itemStyle={{ color: '#60a5fa' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    name="Temperature"
+                    stroke="#3b82f6" 
+                    strokeWidth={3} 
+                    dot={false} 
+                    animationDuration={1000}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
