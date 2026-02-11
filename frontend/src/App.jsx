@@ -19,7 +19,8 @@ import {
   Moon,
   MapPin,
   Navigation,
-  Umbrella
+  Umbrella,
+  HelpCircle
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -50,6 +51,8 @@ function App() {
   const [tempInput, setTempInput] = useState("");
   const [isEditingTemp, setIsEditingTemp] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugSubmitting, setBugSubmitting] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -286,6 +289,25 @@ function App() {
     }
   };
 
+  const submitBugReport = async (e) => {
+    e.preventDefault();
+    setBugSubmitting(true);
+    const formData = new FormData(e.target);
+    try {
+      const res = await axios.post(`${API_BASE}/support/report-bug`, {
+        title: formData.get('title'),
+        description: formData.get('description')
+      });
+      alert(`Bug reported successfully! Issue created at: ${res.data.issue_url}`);
+      setShowBugReport(false);
+    } catch (err) {
+      console.error("Error reporting bug", err);
+      alert(`Failed to report bug: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setBugSubmitting(false);
+    }
+  };
+
   if (loading && !error) return (
     <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
       <Zap className="animate-pulse mr-2" /> Loading OpenSoak...
@@ -362,6 +384,17 @@ function App() {
             <Clock className="w-4 h-4 md:w-6 md:h-6 text-blue-400" />
             <span className="text-sm md:text-lg font-bold text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
           </div>
+
+          <button 
+            onClick={() => setShowBugReport(true)}
+            className="p-3 bg-slate-900 rounded-full border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500 transition-all shadow-lg group relative"
+            title="Report a Bug"
+          >
+            <HelpCircle className="w-6 h-6" />
+            <div className="absolute top-full mt-2 right-0 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 w-24 z-50">
+              Need help or found a bug?
+            </div>
+          </button>
         </div>
       </header>
 
@@ -1000,6 +1033,55 @@ function App() {
         </div>
 
       </div>
+
+      {/* Bug Report Modal */}
+      {showBugReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 w-full max-w-md shadow-2xl animate-float">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center">
+                <HelpCircle className="mr-2 text-blue-400" /> Report a Problem
+              </h2>
+              <button onClick={() => setShowBugReport(false)} className="text-slate-500 hover:text-white transition">✕</button>
+            </div>
+            
+            <form onSubmit={submitBugReport} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Title</label>
+                <input 
+                  name="title" 
+                  required 
+                  placeholder="What is the problem?"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Description</label>
+                <textarea 
+                  name="description" 
+                  required 
+                  rows="4"
+                  placeholder="Please describe what happened..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition resize-none"
+                />
+              </div>
+              
+              <div className="pt-4">
+                <button 
+                  type="submit" 
+                  disabled={bugSubmitting}
+                  className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg ${bugSubmitting ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'}`}
+                >
+                  {bugSubmitting ? 'Submitting...' : 'Submit to GitHub'}
+                </button>
+                <p className="text-[10px] text-slate-600 text-center mt-4">
+                  This will create a public issue on the OpenSoak repository.
+                </p>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
