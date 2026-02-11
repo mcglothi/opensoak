@@ -445,14 +445,22 @@ function App() {
                  
                  {/* Day Selection */}
                  <div className="flex justify-between px-1">
-                   {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, idx) => (
+                   {[
+                     { label: 'S', val: 6 },
+                     { label: 'M', val: 0 },
+                     { label: 'T', val: 1 },
+                     { label: 'W', val: 2 },
+                     { label: 'T', val: 3 },
+                     { label: 'F', val: 4 },
+                     { label: 'S', val: 5 }
+                   ].map((day) => (
                      <button
-                       key={idx}
+                       key={day.val}
                        type="button"
-                       onClick={() => toggleDay(idx)}
-                       className={`w-5 h-5 rounded-full text-[8px] flex items-center justify-center font-bold transition ${selectedDays.includes(idx) ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}
+                       onClick={() => toggleDay(day.val)}
+                       className={`w-5 h-5 rounded-full text-[8px] flex items-center justify-center font-bold transition ${selectedDays.includes(day.val) ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}
                      >
-                       {label}
+                       {day.label}
                      </button>
                    ))}
                  </div>
@@ -469,8 +477,8 @@ function App() {
                    </div>
                  </div>
                  <div className="flex space-x-2">
-                   <input name="start" type="time" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
-                   <input name="end" type="time" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
+                   <input name="start" type="time" defaultValue="18:00" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
+                   <input name="end" type="time" defaultValue="20:00" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
                  </div>
                  <button className="w-full bg-blue-600 text-[10px] py-2 rounded font-bold uppercase tracking-widest">Add Schedule</button>
                </form>
