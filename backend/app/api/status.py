@@ -48,13 +48,14 @@ async def get_weather(db: Session = Depends(get_db)):
             city = geo_data["results"][0]["name"]
 
             # 2. Get Weather
-            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,is_day,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto"
+            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,is_day,weather_code&hourly=temperature_2m,precipitation_probability,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=2"
             weather_res = await client.get(weather_url)
             weather_data = weather_res.json()
             
             return {
                 "city": city,
                 "current": weather_data["current"],
+                "hourly": weather_data["hourly"],
                 "daily": weather_data["daily"]
             }
     except Exception as e:
