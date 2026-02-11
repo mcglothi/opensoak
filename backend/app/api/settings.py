@@ -14,6 +14,7 @@ class SettingsUpdate(BaseModel):
     max_temp_limit: float = None
     location: str = None
     default_soak_duration: int = None
+    default_soak_temp: float = None
     kwh_cost: float = None
     heater_watts: float = None
     circ_pump_watts: float = None
@@ -60,6 +61,9 @@ def update_settings(update: SettingsUpdate, db: Session = Depends(get_db)):
     
     if update.default_soak_duration is not None:
         settings.default_soak_duration = update.default_soak_duration
+    
+    if update.default_soak_temp is not None:
+        settings.default_soak_temp = update.default_soak_temp
     
     if update.kwh_cost is not None: settings.kwh_cost = update.kwh_cost
     if update.heater_watts is not None: settings.heater_watts = update.heater_watts

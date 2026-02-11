@@ -362,19 +362,20 @@ function App() {
           {weather && !weather.error && weather.current && (
             <div className="bg-slate-900 px-4 py-2 md:px-5 md:py-3 rounded-full border border-slate-800 flex items-center space-x-3 md:space-x-4 shadow-lg">
               {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 24, className: "md:w-7 md:h-7" })}
-              <div className="flex flex-col leading-tight">
-                <span className="text-lg md:text-xl font-bold text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
-                <span className="text-[8px] md:text-[10px] text-slate-500 uppercase font-bold tracking-wider">{weather.city || "Unknown"}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Temporary Role Switcher */}
-          <select 
-            value={role} 
-            onChange={(e) => setRole(e.target.value)}
-            className="bg-slate-900 text-xs md:text-sm text-slate-400 border border-slate-800 rounded-lg px-2 py-1 md:px-3 md:py-2 outline-none focus:border-blue-500 transition"
-          >
+                              <div className="flex flex-col leading-tight">
+                              <span className="text-lg md:text-xl font-bold text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
+                              <span className="text-[10px] md:text-xs text-slate-500 uppercase font-bold tracking-wider">{weather.city || "Unknown"}</span>
+                            </div>
+                          </div>
+                        )}
+              
+                        {/* Temporary Role Switcher */}
+                        <select 
+                          value={role} 
+                          onChange={(e) => setRole(e.target.value)}
+                          className="bg-slate-900 text-sm md:text-base text-slate-400 border border-slate-800 rounded-lg px-2 py-1 md:px-3 md:py-2 outline-none focus:border-blue-500 transition"
+                        >
+              
             <option value="viewer">Viewer Mode</option>
             <option value="user">User Mode</option>
             <option value="admin">Admin Mode</option>
@@ -420,7 +421,7 @@ function App() {
               <span className="text-2xl md:text-4xl font-light text-slate-500 ml-2">°F</span>
               {timeLeft && (
                 <div className="md:ml-8 flex flex-col items-center justify-center bg-slate-950/50 border border-blue-500/30 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl animate-pulse">
-                  <span className="text-[8px] md:text-[10px] font-black text-blue-400 uppercase tracking-tighter">Time Remaining</span>
+                  <span className="text-[10px] md:text-xs font-black text-blue-400 uppercase tracking-tighter">Time Remaining</span>
                   <span className="text-xl md:text-3xl font-mono font-bold text-white">{timeLeft}</span>
                 </div>
               )}
@@ -507,23 +508,23 @@ function App() {
                   )}
                 </div>
                 {status?.desired_state?.manual_soak_active && (
-                   <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest animate-pulse mt-1">Manual Soak Active</span>
+                   <span className="text-xs text-blue-400 font-bold uppercase tracking-widest animate-pulse mt-1">Manual Soak Active</span>
                 )}
-                {status?.desired_state?.jet_pump && !status?.desired_state?.manual_soak_active && <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1 animate-pulse">Jets Active</span>}
+                {status?.desired_state?.jet_pump && !status?.desired_state?.manual_soak_active && <span className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 animate-pulse">Jets Active</span>}
               </div>
             </div>
 
             {/* Quick Soak Controls */}
             {role !== 'viewer' && !status?.desired_state?.manual_soak_active && (
               <div className="mt-8 p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between group relative gap-4">
-                <div className="absolute -top-8 left-0 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 z-50">
+                <div className="absolute -top-8 left-0 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50">
                   Start an immediate heating session. Jets and lights can be toggled manually.
                 </div>
                 <div className="flex items-center space-x-4">
                   <Zap className={`text-orange-400 w-5 h-5 ${isHeaterOn ? 'animate-pulse' : ''}`} />
                   <div>
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-tight">Soak Now!</h3>
-                    <p className="text-[10px] text-slate-500">Override thermostat</p>
+                    <h3 className="text-sm font-bold text-slate-300 uppercase tracking-tight">Soak Now!</h3>
+                    <p className="text-xs text-slate-500">Override thermostat</p>
                   </div>
                 </div>
                 <form onSubmit={(e) => {
@@ -532,14 +533,14 @@ function App() {
                   startSoak(formData.get('temp'), formData.get('duration'));
                 }} className="flex items-center space-x-2 w-full sm:w-auto">
                   <div className="flex flex-col">
-                    <span className="text-[8px] text-slate-500 uppercase font-bold ml-1">Temp</span>
-                    <input name="temp" type="number" step="0.5" defaultValue="104" className="w-12 bg-slate-900 border border-slate-800 rounded text-[10px] p-1 text-orange-400 font-bold outline-none focus:border-orange-500" />
+                    <span className="text-[10px] text-slate-500 uppercase font-bold ml-1">Temp</span>
+                    <input name="temp" type="number" step="0.5" defaultValue={settings?.default_soak_temp || 104} className="w-14 bg-slate-900 border border-slate-800 rounded text-xs p-1 text-orange-400 font-bold outline-none focus:border-orange-500" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[8px] text-slate-500 uppercase font-bold ml-1">Min</span>
-                    <input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-12 bg-slate-900 border border-slate-800 rounded text-[10px] p-1 text-slate-300 outline-none focus:border-slate-700" />
+                    <span className="text-[10px] text-slate-500 uppercase font-bold ml-1">Min</span>
+                    <input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-14 bg-slate-900 border border-slate-800 rounded text-xs p-1 text-slate-300 outline-none focus:border-slate-700" />
                   </div>
-                  <button type="submit" className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold uppercase px-4 py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20">
+                  <button type="submit" className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-xs font-bold uppercase px-4 py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20">
                     Soak!
                   </button>
                 </form>
@@ -949,9 +950,9 @@ function App() {
                       </div>
                     </div>
                     <div className="group relative">
-                      <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">Default Soak Duration</label>
+                      <label className="text-[10px] text-slate-500 uppercase font-bold ml-1">Default Soak Duration</label>
                       <div className="flex items-center space-x-1">
-                        <Clock size={12} className="text-slate-500" />
+                        <Clock size={14} className="text-slate-500" />
                         <input 
                           type="number"
                           defaultValue={settings?.default_soak_duration || 60} 
@@ -959,11 +960,30 @@ function App() {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_duration: val });
                           }}
-                          className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition font-bold text-slate-300"
+                          className="w-full bg-slate-900 text-xs p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition font-bold text-slate-300"
                         />
                       </div>
-                      <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[8px] text-white p-1 rounded border border-slate-700 z-50">
+                      <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[10px] text-white p-1 rounded border border-slate-700 z-50">
                         Default time for manual Quick Heat sessions.
+                      </div>
+                    </div>
+                    <div className="group relative">
+                      <label className="text-[10px] text-slate-500 uppercase font-bold ml-1">Default Soak Temp</label>
+                      <div className="flex items-center space-x-1">
+                        <Thermometer size={14} className="text-slate-500" />
+                        <input 
+                          type="number"
+                          step="0.5"
+                          defaultValue={settings?.default_soak_temp || 104} 
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_temp: val });
+                          }}
+                          className="w-full bg-slate-900 text-xs p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition font-bold text-slate-300"
+                        />
+                      </div>
+                      <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[10px] text-white p-1 rounded border border-slate-700 z-50">
+                        Initial temperature for new soak sessions.
                       </div>
                     </div>
                  </div>

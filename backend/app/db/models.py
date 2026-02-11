@@ -14,6 +14,7 @@ class Settings(Base):
     max_temp_limit = Column(Float, default=110.0)
     location = Column(String, default="90210") # Zip code for weather
     default_soak_duration = Column(Integer, default=60)
+    default_soak_temp = Column(Float, default=104.0)
     
     # Energy Settings
     kwh_cost = Column(Float, default=0.12) # Price in $ per kWh
