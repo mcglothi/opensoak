@@ -12,6 +12,7 @@ class Settings(Base):
     hysteresis_upper = Column(Float, default=0.5)
     hysteresis_lower = Column(Float, default=1.0)
     max_temp_limit = Column(Float, default=110.0)
+    location = Column(String, default="90210") # Zip code for weather
 
 class TemperatureLog(Base):
     __tablename__ = "temperature_logs"

@@ -10,7 +10,14 @@ import {
   Settings as SettingsIcon,
   Clock,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Sun,
+  Cloud,
+  CloudRain,
+  CloudLightning,
+  Snowflake,
+  Moon,
+  MapPin
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -36,21 +43,24 @@ function App() {
   const [historyLimit, setHistoryLimit] = useState(60); // Default 1 hour (60 min)
   const [usageLogs, setUsageLogs] = useState([]);
   const [editingSchedule, setEditingSchedule] = useState(null);
+  const [weather, setWeather] = useState(null);
 
   const fetchData = async () => {
     try {
-      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes] = await Promise.all([
+      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes] = await Promise.all([
         axios.get(`${API_BASE}/status/`),
         axios.get(`${API_BASE}/settings/`),
         axios.get(`${API_BASE}/status/history?limit=${historyLimit}`),
         axios.get(`${API_BASE}/schedules/`),
-        axios.get(`${API_BASE}/status/logs`)
+        axios.get(`${API_BASE}/status/logs`),
+        axios.get(`${API_BASE}/status/weather`)
       ]);
       
       setStatus(statusRes.data);
       setSettings(settingsRes.data);
       setSchedules(Array.isArray(schedulesRes.data) ? schedulesRes.data : []);
       setUsageLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
+      setWeather(weatherRes.data);
       
       const historyData = Array.isArray(historyRes.data) ? historyRes.data : [];
       setHistory(historyData.map(h => ({
@@ -172,6 +182,27 @@ function App() {
     }
   };
 
+  const updateLocation = async (zip) => {
+    if (role !== 'admin') return;
+    try {
+      await axios.post(`${API_BASE}/settings/`, { location: zip });
+      fetchData();
+    } catch (err) {
+      console.error("Error updating location", err);
+    }
+  };
+
+  const getWeatherIcon = (code, isDay = true) => {
+    if (code === 0) return isDay ? <Sun className="text-yellow-400" /> : <Moon className="text-slate-400" />;
+    if (code <= 3) return <Cloud className="text-slate-400" />;
+    if (code <= 48) return <Cloud className="text-slate-500" />;
+    if (code <= 67) return <CloudRain className="text-blue-400" />;
+    if (code <= 77) return <Snowflake className="text-blue-200" />;
+    if (code <= 82) return <CloudRain className="text-blue-500" />;
+    if (code <= 99) return <CloudLightning className="text-yellow-600" />;
+    return <Cloud />;
+  };
+
   const updateSetPoint = async (delta) => {
     if (role === 'viewer') return;
     try {
@@ -230,6 +261,16 @@ function App() {
         </div>
         
         <div className="flex items-center space-x-4">
+          {weather && !weather.error && (
+            <div className="bg-slate-900 px-4 py-2 rounded-full border border-slate-800 flex items-center space-x-3">
+              {getWeatherIcon(weather.current.weather_code, weather.current.is_day)}
+              <div className="flex flex-col leading-tight">
+                <span className="text-xs font-bold text-white">{weather.current.temperature_2m.toFixed(0)}°F</span>
+                <span className="text-[8px] text-slate-500 uppercase tracking-tighter">{weather.city}</span>
+              </div>
+            </div>
+          )}
+
           {/* Temporary Role Switcher */}
           <select 
             value={role} 
@@ -341,6 +382,29 @@ function App() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Weekly Forecast */}
+          {weather && weather.daily && (
+            <div className="mt-8 pt-8 border-t border-slate-800">
+              <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">7-Day Forecast</h3>
+              <div className="grid grid-cols-7 gap-2">
+                {weather.daily.time.map((date, idx) => (
+                  <div key={date} className="flex flex-col items-center p-2 rounded-xl bg-slate-950 border border-slate-800/50">
+                    <span className="text-[8px] text-slate-500 uppercase font-bold mb-2">
+                      {new Date(date).toLocaleDateString([], { weekday: 'short' })}
+                    </span>
+                    <div className="mb-2">
+                      {React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 16 })}
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-bold text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span>
+                      <span className="text-[8px] text-slate-500">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Controls Card / Info Sidebar */}
@@ -523,6 +587,20 @@ function App() {
                     {editingSchedule ? 'Save Changes' : 'Add Schedule'}
                  </button>
                </form>
+             )}
+
+             {role === 'admin' && (
+               <div className="pt-4 border-t border-slate-900">
+                 <div className="flex items-center space-x-2">
+                   <MapPin size={12} className="text-slate-500" />
+                   <input 
+                     defaultValue={settings?.location || ''} 
+                     onBlur={(e) => updateLocation(e.target.value)}
+                     placeholder="Zip / City" 
+                     className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800"
+                   />
+                 </div>
+               </div>
              )}
           </div>
         </div>

@@ -12,6 +12,7 @@ class SettingsUpdate(BaseModel):
     hysteresis_upper: float = None
     hysteresis_lower: float = None
     max_temp_limit: float = None
+    location: str = None
 
 def get_db():
     db = SessionLocal()
@@ -46,6 +47,9 @@ def update_settings(update: SettingsUpdate, db: Session = Depends(get_db)):
         settings.hysteresis_lower = update.hysteresis_lower
     if update.max_temp_limit is not None:
         settings.max_temp_limit = update.max_temp_limit
+    
+    if update.location is not None:
+        settings.location = update.location
         
     db.commit()
     db.refresh(settings)

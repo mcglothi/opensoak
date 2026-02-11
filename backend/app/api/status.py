@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from ..db.session import SessionLocal
-from ..db.models import SystemState, TemperatureLog
+import httpx
+from ..db.models import SystemState, TemperatureLog, Settings
 from ..services.engine import engine as hottub_engine
 
 router = APIRouter()
@@ -25,6 +26,39 @@ def get_status(db: Session = Depends(get_db)):
         "actual_relay_state": relay_states,
         "safety_status": hottub_engine.safety_status
     }
+
+@router.get("/weather")
+async def get_weather(db: Session = Depends(get_db)):
+    settings = db.query(Settings).first()
+    if not settings or not settings.location:
+        return {"error": "Location not set"}
+    
+    try:
+        # 1. Geocode Location
+        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={settings.location}&count=1&language=en&format=json"
+        async with httpx.AsyncClient() as client:
+            geo_res = await client.get(geo_url)
+            geo_data = geo_res.json()
+            
+            if not geo_data.get("results"):
+                return {"error": "Location not found"}
+            
+            lat = geo_data["results"][0]["latitude"]
+            lon = geo_data["results"][0]["longitude"]
+            city = geo_data["results"][0]["name"]
+
+            # 2. Get Weather
+            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,is_day,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto"
+            weather_res = await client.get(weather_url)
+            weather_data = weather_res.json()
+            
+            return {
+                "city": city,
+                "current": weather_data["current"],
+                "daily": weather_data["daily"]
+            }
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.get("/history")
 def get_history(limit: int = 1440, db: Session = Depends(get_db)):
