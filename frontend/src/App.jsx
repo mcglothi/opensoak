@@ -337,24 +337,33 @@ function App() {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none"></div>
       
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 relative z-10 space-y-4 md:space-y-0">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-            OpenSoak
-          </h1>
-          <div className="flex flex-wrap items-center gap-4 mt-1">
-            <p className="text-slate-400 text-sm flex items-center">
-              <ShieldCheck className={`w-3 h-3 mr-1 ${status?.safety_status === 'OK' ? 'text-emerald-500' : 'text-red-500'}`} /> 
-              System: {status?.safety_status}
-            </p>
-            {status?.safety_status !== 'OK' && role === 'admin' && (
-              <button 
-                onClick={resetFaults}
-                className="text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded border border-red-500/50 transition"
-              >
-                Reset Faults
-              </button>
-            )}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 relative z-10 space-y-6 md:space-y-0">
+        <div className="flex items-center group cursor-default">
+          <div className="relative mr-4">
+            <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full group-hover:bg-emerald-500/30 transition-colors duration-700"></div>
+            <div className="relative bg-slate-900 p-3 rounded-2xl border border-slate-800 shadow-2xl flex items-center justify-center">
+              <Droplets className="text-blue-400 w-8 h-8 absolute animate-pulse" />
+              <Zap className="text-emerald-400 w-5 h-5 relative mt-1 ml-1" />
+            </div>
+          </div>
+          <div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-white to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
+              OpenSoak
+            </h1>
+            <div className="flex flex-wrap items-center gap-4 mt-1">
+              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.2em] flex items-center">
+                <ShieldCheck className={`w-3 h-3 mr-2 ${status?.safety_status === 'OK' ? 'text-emerald-500' : 'text-red-500 animate-pulse'}`} /> 
+                System: {status?.safety_status}
+              </p>
+              {status?.safety_status !== 'OK' && role === 'admin' && (
+                <button 
+                  onClick={resetFaults}
+                  className="text-[10px] font-black uppercase bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1 rounded-lg border border-red-500/50 transition-all active:scale-95"
+                >
+                  Clear Faults
+                </button>
+              )}
+            </div>
           </div>
         </div>
         
@@ -833,17 +842,19 @@ function App() {
                    </div>
                  </div>
                  
-                 <div className="space-y-1">
-                   {Object.entries(energyData.today).map(([component, stats]) => (
-                     <div key={component} className="flex justify-between items-center text-[10px]">
-                       <span className="text-slate-400 capitalize">{component.replace('_', ' ')}</span>
-                       <div className="flex items-center space-x-2">
-                         <span className="text-slate-600">{(stats.runtime / 3600).toFixed(1)}h</span>
-                         <span className="text-slate-300 font-bold">${stats.cost.toFixed(2)}</span>
+                 {role === 'admin' && (
+                   <div className="space-y-1 pt-2 border-t border-slate-900">
+                     {Object.entries(energyData.today).map(([component, stats]) => (
+                       <div key={component} className="flex justify-between items-center text-[10px]">
+                         <span className="text-slate-400 capitalize">{component.replace('_', ' ')}</span>
+                         <div className="flex items-center space-x-2">
+                           <span className="text-slate-600">{(stats.runtime / 3600).toFixed(1)}h</span>
+                           <span className="text-slate-300 font-bold">${stats.cost.toFixed(2)}</span>
+                         </div>
                        </div>
-                     </div>
-                   ))}
-                 </div>
+                     ))}
+                   </div>
+                 )}
                </div>
              ) : (
                <p className="text-[10px] text-slate-600 italic">Calculating usage...</p>
