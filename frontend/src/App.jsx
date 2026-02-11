@@ -38,21 +38,71 @@ function App() {
   const [editingSchedule, setEditingSchedule] = useState(null);
 
   const fetchData = async () => {
-    // ... (fetch logic remains same)
+    try {
+      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes] = await Promise.all([
+        axios.get(`${API_BASE}/status/`),
+        axios.get(`${API_BASE}/settings/`),
+        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`),
+        axios.get(`${API_BASE}/schedules/`),
+        axios.get(`${API_BASE}/status/logs`)
+      ]);
+      
+      setStatus(statusRes.data);
+      setSettings(settingsRes.data);
+      setSchedules(Array.isArray(schedulesRes.data) ? schedulesRes.data : []);
+      setUsageLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
+      
+      const historyData = Array.isArray(historyRes.data) ? historyRes.data : [];
+      setHistory(historyData.map(h => ({
+        ...h,
+        time: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })).reverse());
+      
+      setError(null);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching data", err);
+      setError("Cannot connect to Hot Tub API. Please ensure the backend is running.");
+    }
   };
 
-  // ... (fetchData useEffect remains same)
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 2000);
+    return () => clearInterval(interval);
+  }, [historyLimit]);
 
   const toggleControl = async (key, val) => {
-    // ... (toggle logic remains same)
+    if (role === 'viewer') return;
+    if (role === 'user' && (key === 'circ_pump' || key === 'ozone')) return;
+    
+    try {
+      await axios.post(`${API_BASE}/control/`, { [key]: val });
+      fetchData();
+    } catch (err) {
+      console.error("Error updating control", err);
+    }
   };
 
   const resetFaults = async () => {
-    // ... (reset logic remains same)
+    if (role !== 'admin') return;
+    try {
+      await axios.post(`${API_BASE}/control/reset-faults`);
+      fetchData();
+    } catch (err) {
+      console.error("Error resetting faults", err);
+    }
   };
 
   const masterShutdown = async () => {
-    // ... (shutdown logic remains same)
+    if (role !== 'admin') return;
+    if (!window.confirm("Are you sure you want to shut down ALL systems and lock the tub?")) return;
+    try {
+      await axios.post(`${API_BASE}/control/master-shutdown`);
+      fetchData();
+    } catch (err) {
+      console.error("Error in master shutdown", err);
+    }
   };
 
   const createSchedule = async (e) => {
@@ -86,7 +136,13 @@ function App() {
   };
 
   const deleteSchedule = async (id) => {
-    // ... (delete logic remains same)
+    if (role !== 'admin') return;
+    try {
+      await axios.delete(`${API_BASE}/schedules/${id}`);
+      fetchData();
+    } catch (err) {
+      console.error("Error deleting schedule", err);
+    }
   };
 
   const editSchedule = (sched) => {
@@ -287,76 +343,89 @@ function App() {
           </div>
         </div>
 
-        {/* Controls Card */}
+        {/* Controls Card / Info Sidebar */}
         <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-xl">
-          <h2 className="text-white text-xl font-bold mb-6 flex items-center">
-            <SettingsIcon className="w-5 h-5 mr-2 text-slate-400" /> Device Controls
-          </h2>
-          
-          <div className="space-y-4">
-            <ControlToggle 
-              label="Heater" 
-              icon={<Zap />} 
-              active={status?.desired_state?.heater} 
-              onToggle={(v) => toggleControl('heater', v)}
-              color="orange"
-              disabled={role === 'viewer'}
-            />
-            <ControlToggle 
-              label="Jets" 
-              icon={<Wind />} 
-              active={status?.desired_state?.jet_pump} 
-              onToggle={(v) => toggleControl('jet_pump', v)}
-              color="blue"
-              disabled={role === 'viewer'}
-            />
-            <ControlToggle 
-              label="Light" 
-              icon={<Lightbulb />} 
-              active={status?.desired_state?.light} 
-              onToggle={(v) => toggleControl('light', v)}
-              color="yellow"
-              disabled={role === 'viewer'}
-            />
-            
-            {(role === 'admin') && (
-              <>
-                <div className="pt-4 border-t border-slate-800">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Admin Controls</h3>
-                  <div className="space-y-4">
-                    <ControlToggle 
-                      label="Circ Pump" 
-                      icon={<Droplets />} 
-                      active={status?.desired_state?.circ_pump} 
-                      onToggle={(v) => toggleControl('circ_pump', v)}
-                      color="emerald"
-                    />
-                    <ControlToggle 
-                      label="Ozone" 
-                      icon={<Zap />} 
-                      active={status?.desired_state?.ozone} 
-                      onToggle={(v) => toggleControl('ozone', v)}
-                      color="blue"
-                    />
-                    <button 
-                      onClick={masterShutdown}
-                      className="w-full flex items-center justify-center p-4 rounded-2xl border border-red-500/50 bg-red-500/10 text-red-500 font-black uppercase tracking-tighter hover:bg-red-500/20 transition"
-                    >
-                      <Zap className="mr-2" /> Master Shutdown
-                    </button>
+          {role !== 'viewer' ? (
+            <>
+              <h2 className="text-white text-xl font-bold mb-6 flex items-center">
+                <SettingsIcon className="w-5 h-5 mr-2 text-slate-400" /> Device Controls
+              </h2>
+              
+              <div className="space-y-4">
+                <ControlToggle 
+                  label="Heater" 
+                  icon={<Zap />} 
+                  active={status?.desired_state?.heater} 
+                  onToggle={(v) => toggleControl('heater', v)}
+                  color="orange"
+                />
+                <ControlToggle 
+                  label="Jets" 
+                  icon={<Wind />} 
+                  active={status?.desired_state?.jet_pump} 
+                  onToggle={(v) => toggleControl('jet_pump', v)}
+                  color="blue"
+                />
+                <ControlToggle 
+                  label="Light" 
+                  icon={<Lightbulb />} 
+                  active={status?.desired_state?.light} 
+                  onToggle={(v) => toggleControl('light', v)}
+                  color="yellow"
+                />
+                
+                {(role === 'admin') && (
+                  <>
+                    <div className="pt-4 border-t border-slate-800">
+                      <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Admin Controls</h3>
+                      <div className="space-y-4">
+                        <ControlToggle 
+                          label="Circ Pump" 
+                          icon={<Droplets />} 
+                          active={status?.desired_state?.circ_pump} 
+                          onToggle={(v) => toggleControl('circ_pump', v)}
+                          color="emerald"
+                        />
+                        <ControlToggle 
+                          label="Ozone" 
+                          icon={<Zap />} 
+                          active={status?.desired_state?.ozone} 
+                          onToggle={(v) => toggleControl('ozone', v)}
+                          color="blue"
+                        />
+                        <button 
+                          onClick={masterShutdown}
+                          className="w-full flex items-center justify-center p-4 rounded-2xl border border-red-500/50 bg-red-500/10 text-red-500 font-black uppercase tracking-tighter hover:bg-red-500/20 transition"
+                        >
+                          <Zap className="mr-2" /> Master Shutdown
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                {role === 'user' && (
+                  <div className="pt-4 border-t border-slate-800">
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-center">
+                      Admin features locked
+                    </p>
                   </div>
-                </div>
-              </>
-            )}
-            
-            {role === 'user' && (
-              <div className="pt-4 border-t border-slate-800">
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-center">
-                  Admin features locked
-                </p>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-white text-xl font-bold mb-6 flex items-center">
+                <ShieldCheck className="w-5 h-5 mr-2 text-emerald-400" /> System Information
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                <StatusIndicator label="Heater" active={status?.actual_relay_state?.heater} color="text-orange-400" />
+                <StatusIndicator label="Jets" active={status?.actual_relay_state?.jet_pump} color="text-blue-400" />
+                <StatusIndicator label="Light" active={status?.actual_relay_state?.light} color="text-yellow-400" />
+                <StatusIndicator label="Pump" active={status?.actual_relay_state?.circ_pump} color="text-emerald-400" />
+              </div>
+            </>
+          )}
 
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
              <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Recent Activity</h3>
@@ -459,6 +528,15 @@ function App() {
         </div>
 
       </div>
+    </div>
+  );
+}
+
+function StatusIndicator({ label, active, color }) {
+  return (
+    <div className={`p-3 rounded-xl border border-slate-800 bg-slate-950 flex flex-col items-center justify-center space-y-1 ${active ? 'opacity-100' : 'opacity-40'}`}>
+      <div className={`w-2 h-2 rounded-full ${active ? color.replace('text', 'bg') : 'bg-slate-700'} ${active ? 'animate-pulse' : ''}`} />
+      <span className="text-[10px] font-bold uppercase text-slate-500">{label}</span>
     </div>
   );
 }
