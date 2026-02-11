@@ -9,12 +9,12 @@ OpenSoak is a modern, open-source hot tub control system designed to run on a Ra
 ### Web Interface
 | User Mode (Active Soak) | Admin Mode (Settings) | Viewer Mode |
 | :---: | :---: | :---: |
-| ![User Mode](docs/screenshots/Screenshot-User.png) | ![Admin Mode](docs/screenshots/Screenshot-Admin.png) | ![Viewer Mode](docs/screenshots/Screenshot-Viewer.png) |
+| <a href="docs/screenshots/Screenshot-User.png"><img src="docs/screenshots/Screenshot-User.png" width="300" alt="User Mode" /></a> | <a href="docs/screenshots/Screenshot-Admin.png"><img src="docs/screenshots/Screenshot-Admin.png" width="300" alt="Admin Mode" /></a> | <a href="docs/screenshots/Screenshot-Viewer.png"><img src="docs/screenshots/Screenshot-Viewer.png" width="300" alt="Viewer Mode" /></a> |
 
 ### Mobile Experience
-| Mobile Admin 1 | Mobile Admin 2 |
+| Mobile View 1 | Mobile View 2 |
 | :---: | :---: |
-| ![Mobile Admin 1](docs/screenshots/Screenshot-Mobile-Admin1.png) | ![Mobile Admin 2](docs/screenshots/Screenshot-Mobile-Admin2.png) |
+| <a href="docs/screenshots/Screenshot-Mobile-Admin1.png"><img src="docs/screenshots/Screenshot-Mobile-Admin1.png" width="180" alt="Mobile View 1" /></a> | <a href="docs/screenshots/Screenshot-Mobile-Admin2.png"><img src="docs/screenshots/Screenshot-Mobile-Admin2.png" width="180" alt="Mobile View 2" /></a> |
 
 ## 🚀 Features
 
