@@ -48,6 +48,7 @@ function App() {
   const [weather, setWeather] = useState(null);
   const [tempInput, setTempInput] = useState("");
   const [isEditingTemp, setIsEditingTemp] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -88,6 +89,28 @@ function App() {
     const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
   }, [historyLimit, isEditingTemp]);
+
+  useEffect(() => {
+    if (status?.desired_state?.manual_soak_active && status?.desired_state?.manual_soak_expires) {
+      const timer = setInterval(() => {
+        const now = new Date();
+        const expires = new Date(status.desired_state.manual_soak_expires);
+        const diff = expires - now;
+        
+        if (diff <= 0) {
+          setTimeLeft(null);
+          clearInterval(timer);
+        } else {
+          const mins = Math.floor(diff / 60000);
+          const secs = Math.floor((diff % 60000) / 1000);
+          setTimeLeft(`${mins}:${secs < 10 ? '0' : ''}${secs}`);
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    } else {
+      setTimeLeft(null);
+    }
+  }, [status]);
 
   const toggleControl = async (key, val) => {
     if (role === 'viewer') return;
@@ -282,30 +305,6 @@ function App() {
 
   const currentTemp = status?.current_temp?.toFixed(1) || "--";
   const isHeaterOn = status?.actual_relay_state?.heater;
-
-  const [timeLeft, setTimeLeft] = useState(null);
-
-  useEffect(() => {
-    if (status?.desired_state?.manual_soak_active && status?.desired_state?.manual_soak_expires) {
-      const timer = setInterval(() => {
-        const now = new Date();
-        const expires = new Date(status.desired_state.manual_soak_expires);
-        const diff = expires - now;
-        
-        if (diff <= 0) {
-          setTimeLeft(null);
-          clearInterval(timer);
-        } else {
-          const mins = Math.floor(diff / 60000);
-          const secs = Math.floor((diff % 60000) / 1000);
-          setTimeLeft(`${mins}:${secs < 10 ? '0' : ''}${secs}`);
-        }
-      }, 1000);
-      return () => clearInterval(timer);
-    } else {
-      setTimeLeft(null);
-    }
-  }, [status]);
 
   return (
     <div className="min-h-screen bg-transparent p-4 md:p-8 text-slate-100 font-sans relative overflow-hidden">
