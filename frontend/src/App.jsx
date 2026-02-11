@@ -313,32 +313,3 @@ function ControlToggle({ label, icon, active, onToggle, color, disabled }) {
 }
 
 export default App;
-
-function ControlToggle({ label, icon, active, onToggle, color }) {
-  const colors = {
-    orange: "bg-orange-500/20 text-orange-400 border-orange-500/50",
-    blue: "bg-blue-500/20 text-blue-400 border-blue-500/50",
-    yellow: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
-    emerald: "bg-emerald-500/20 text-emerald-400 border-emerald-500/50",
-    gray: "bg-slate-800 text-slate-400 border-slate-700"
-  };
-
-  return (
-    <button 
-      onClick={() => onToggle(!active)}
-      className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${active ? colors[color] : colors.gray}`}
-    >
-      <div className="flex items-center">
-        <div className={`p-2 rounded-lg ${active ? 'bg-white/10' : 'bg-slate-900'}`}>
-          {React.cloneElement(icon, { size: 20 })}
-        </div>
-        <span className="ml-4 font-bold">{label}</span>
-      </div>
-      <div className={`w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}`}>
-        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'}`} />
-      </div>
-    </button>
-  );
-}
-
-export default App;

@@ -9,3 +9,6 @@ gpiozero
 numpy
 apscheduler
 python-multipart
+pytest
+httpx
+pytest-asyncio
