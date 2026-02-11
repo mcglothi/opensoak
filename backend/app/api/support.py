@@ -37,13 +37,13 @@ async def report_bug(report: BugReport, db: Session = Depends(get_db)):
     
     payload = {
         "title": f"[UI Report] {report.title}",
-        "body": f"### Bug Report from OpenSoak Dashboard
+        "body": f"""### Bug Report from OpenSoak Dashboard
 
 **Description:**
 {report.description}
 
 ---
-*Submitted via internal Support API*",
+*Submitted via internal Support API*""",
         "labels": ["bug", "user-reported"]
     }
 
