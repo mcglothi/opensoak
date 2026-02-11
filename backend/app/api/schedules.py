@@ -9,10 +9,11 @@ router = APIRouter()
 
 class ScheduleCreate(BaseModel):
     name: str
+    type: str = "heat" # "heat", "rest", "jet"
     start_time: str
     end_time: str
     days_of_week: str
-    target_temp: float
+    target_temp: float = None
     active: bool = True
 
 def get_db():

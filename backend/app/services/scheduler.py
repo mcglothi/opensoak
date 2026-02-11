@@ -33,20 +33,41 @@ class HotTubScheduler:
             db.close()
 
     def activate_schedule(self, sched, db):
-        print(f"Activating schedule: {sched.name}")
+        print(f"Activating schedule: {sched.name} ({sched.type})")
         state = db.query(SystemState).first()
         settings = db.query(Settings).first()
         
-        if state and settings:
+        if not state or not settings:
+            return
+
+        if sched.type == "heat":
             state.heater = True
             settings.set_point = sched.target_temp
-            db.commit()
+        elif sched.type == "rest":
+            # Rest mode usually means dropping temp and leaving heater in auto/current state
+            settings.set_point = sched.target_temp
+        elif sched.type == "jet":
+            state.jet_pump = True
+            
+        db.commit()
 
     def deactivate_schedule(self, sched, db):
-        print(f"Deactivating schedule: {sched.name}")
+        print(f"Deactivating schedule: {sched.name} ({sched.type})")
         state = db.query(SystemState).first()
-        if state:
-            state.heater = False
-            db.commit()
+        settings = db.query(Settings).first()
+        
+        if not state:
+            return
+
+        if sched.type == "jet":
+            state.jet_pump = False
+        elif sched.type == "heat":
+            # Revert to rest temp if available
+            if settings:
+                settings.set_point = settings.default_rest_temp
+            state.heater = False # Or maybe keep it on auto? 
+            # Usually people want it to just maintain the rest temp.
+            
+        db.commit()
 
 scheduler = HotTubScheduler()

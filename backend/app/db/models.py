@@ -8,6 +8,7 @@ class Settings(Base):
     __tablename__ = "settings"
     id = Column(Integer, primary_key=True, index=True)
     set_point = Column(Float, default=104.0)
+    default_rest_temp = Column(Float, default=80.0)
     hysteresis_upper = Column(Float, default=0.5)
     hysteresis_lower = Column(Float, default=1.0)
     max_temp_limit = Column(Float, default=110.0)
@@ -22,10 +23,11 @@ class Schedule(Base):
     __tablename__ = "schedules"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
+    type = Column(String, default="heat") # "heat", "rest", "jet"
     start_time = Column(String) # HH:MM
     end_time = Column(String)   # HH:MM
     days_of_week = Column(String) # "0,1,2,3,4,5,6" (Monday=0)
-    target_temp = Column(Float)
+    target_temp = Column(Float, nullable=True)
     active = Column(Boolean, default=True)
 
 class SystemState(Base):

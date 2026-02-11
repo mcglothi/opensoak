@@ -28,25 +28,34 @@ function App() {
   const [status, setStatus] = useState(null);
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
+  const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [role, setRole] = useState('user'); // 'viewer', 'user', 'admin'
 
   const fetchData = async () => {
     try {
-      const [statusRes, settingsRes, historyRes] = await Promise.all([
+      const [statusRes, settingsRes, historyRes, schedulesRes] = await Promise.all([
         axios.get(`${API_BASE}/status/`),
         axios.get(`${API_BASE}/settings/`),
-        axios.get(`${API_BASE}/status/history`)
+        axios.get(`${API_BASE}/status/history`),
+        axios.get(`${API_BASE}/schedules/`)
       ]);
       setStatus(statusRes.data);
       setSettings(settingsRes.data);
-      setHistory(historyRes.data.map(h => ({
+      setSchedules(schedulesRes.data);
+      
+      const historyData = Array.isArray(historyRes.data) ? historyRes.data : [];
+      setHistory(historyData.map(h => ({
         ...h,
         time: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       })).reverse());
+      
+      setError(null);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching data", err);
+      setError("Cannot connect to Hot Tub API. Please ensure the backend is running.");
     }
   };
 
@@ -78,6 +87,38 @@ function App() {
     }
   };
 
+  const masterShutdown = async () => {
+    if (role !== 'admin') return;
+    if (!window.confirm("Are you sure you want to shut down ALL systems and lock the tub?")) return;
+    try {
+      await axios.post(`${API_BASE}/control/master-shutdown`);
+      fetchData();
+    } catch (err) {
+      console.error("Error in master shutdown", err);
+    }
+  };
+
+  const createSchedule = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {
+      name: formData.get('name'),
+      type: formData.get('type'),
+      start_time: formData.get('start'),
+      end_time: formData.get('end'),
+      target_temp: parseFloat(formData.get('temp')),
+      days_of_week: "0,1,2,3,4,5,6",
+      active: true
+    };
+    try {
+      await axios.post(`${API_BASE}/schedules/`, data);
+      fetchData();
+      e.target.reset();
+    } catch (err) {
+      console.error("Error creating schedule", err);
+    }
+  };
+
   const updateSetPoint = async (delta) => {
     if (role === 'viewer') return;
     try {
@@ -89,9 +130,23 @@ function App() {
     }
   };
 
-  if (loading) return (
+  if (loading && !error) return (
     <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
       <Zap className="animate-pulse mr-2" /> Loading OpenSoak...
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white p-4 text-center">
+      <Zap className="text-red-500 mb-4 w-12 h-12" />
+      <h1 className="text-xl font-bold mb-2">Connection Error</h1>
+      <p className="text-slate-400 mb-6">{error}</p>
+      <button 
+        onClick={() => { setError(null); setLoading(true); fetchData(); }}
+        className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full font-bold transition"
+      >
+        Retry Connection
+      </button>
     </div>
   );
 
@@ -178,12 +233,17 @@ function App() {
             </div>
           </div>
 
-          <div className="mt-12 h-48 w-full">
+          <div className="mt-12 h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
+              <LineChart data={history} margin={{ left: -20, right: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="time" hide />
-                <YAxis domain={['auto', 'auto']} hide />
+                <YAxis 
+                  domain={[70, 115]} 
+                  stroke="#475569" 
+                  fontSize={10} 
+                  tickFormatter={(val) => `${val}°`}
+                />
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
                   itemStyle={{ color: '#60a5fa' }}
@@ -191,6 +251,7 @@ function App() {
                 <Line 
                   type="monotone" 
                   dataKey="value" 
+                  name="Temperature"
                   stroke="#3b82f6" 
                   strokeWidth={3} 
                   dot={false} 
@@ -252,6 +313,12 @@ function App() {
                       onToggle={(v) => toggleControl('ozone', v)}
                       color="blue"
                     />
+                    <button 
+                      onClick={masterShutdown}
+                      className="w-full flex items-center justify-center p-4 rounded-2xl border border-red-500/50 bg-red-500/10 text-red-500 font-black uppercase tracking-tighter hover:bg-red-500/20 transition"
+                    >
+                      <Zap className="mr-2" /> Master Shutdown
+                    </button>
                   </div>
                 </div>
               </>
@@ -267,15 +334,41 @@ function App() {
           </div>
 
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-             <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Safety Info</h3>
-             <ul className="text-xs text-slate-400 space-y-2">
-                <li className="flex items-start">
-                  <span className="text-emerald-500 mr-2">✓</span> Heater interlocked with flow
-                </li>
-                <li className="flex items-start">
-                  <span className="text-emerald-500 mr-2">✓</span> High-temp cutoff active
-                </li>
-             </ul>
+             <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Current Schedules</h3>
+             {schedules.length === 0 ? (
+               <p className="text-[10px] text-slate-600 italic">No schedules active</p>
+             ) : (
+               <div className="space-y-2 mb-4">
+                 {schedules.map(s => (
+                   <div key={s.id} className="flex justify-between items-center text-[10px]">
+                     <div>
+                        <span className="text-slate-300 font-bold">{s.name}</span>
+                        <span className="text-slate-500 ml-2">({s.type})</span>
+                     </div>
+                     <span className="text-slate-500">{s.start_time} - {s.end_time}</span>
+                   </div>
+                 ))}
+               </div>
+             )}
+
+             {role === 'admin' && (
+               <form onSubmit={createSchedule} className="pt-4 border-t border-slate-900 space-y-2">
+                 <input name="name" placeholder="Name" className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
+                 <div className="flex space-x-2">
+                   <select name="type" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800">
+                     <option value="heat">Heat</option>
+                     <option value="rest">Rest</option>
+                     <option value="jet">Jet Cycle</option>
+                   </select>
+                   <input name="temp" type="number" placeholder="Temp" className="w-16 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" />
+                 </div>
+                 <div className="flex space-x-2">
+                   <input name="start" type="time" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
+                   <input name="end" type="time" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
+                 </div>
+                 <button className="w-full bg-blue-600 text-[10px] py-2 rounded font-bold uppercase tracking-widest">Add Schedule</button>
+               </form>
+             )}
           </div>
         </div>
 
