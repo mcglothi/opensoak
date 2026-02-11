@@ -637,7 +637,7 @@ function App() {
                 <StatusIndicator 
                   label="Heater" 
                   active={status?.actual_relay_state?.heater} 
-                  color="text-orange-400" 
+                  color="orange" 
                   isLarge={true}
                   icon={<Zap size={20} />}
                 />
@@ -704,11 +704,28 @@ function App() {
               <h2 className="text-white text-xl font-bold mb-6 flex items-center">
                 <ShieldCheck className="w-5 h-5 mr-2 text-emerald-400" /> System Information
               </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <StatusIndicator label="Heater" active={status?.actual_relay_state?.heater} color="text-orange-400" />
-                <StatusIndicator label="Jets" active={status?.actual_relay_state?.jet_pump} color="text-blue-400" />
-                <StatusIndicator label="Light" active={status?.actual_relay_state?.light} color="text-yellow-400" />
-                <StatusIndicator label="Pump" active={status?.actual_relay_state?.circ_pump} color="text-emerald-400" />
+              <div className="space-y-4">
+                <StatusIndicator 
+                  label="Heater" 
+                  active={status?.actual_relay_state?.heater} 
+                  color="orange" 
+                  isLarge={true}
+                  icon={<Zap size={20} />}
+                />
+                <StatusIndicator 
+                  label="Jets" 
+                  active={status?.actual_relay_state?.jet_pump} 
+                  color="blue" 
+                  isLarge={true}
+                  icon={<Wind size={20} />}
+                />
+                <StatusIndicator 
+                  label="Light" 
+                  active={status?.actual_relay_state?.light} 
+                  color="yellow" 
+                  isLarge={true}
+                  icon={<Lightbulb size={20} />}
+                />
               </div>
             </>
           )}
@@ -912,27 +929,64 @@ function App() {
 
 
 function StatusIndicator({ label, active, color, isLarge, icon }) {
+  const colorMaps = {
+    orange: {
+      text: "text-orange-400",
+      bg: "bg-orange-500/20",
+      border: "border-orange-500/30",
+      glow: "bg-glow-orange",
+      dot: "bg-orange-500",
+      shadow: "shadow-[0_0_8px_rgba(249,115,22,0.5)]"
+    },
+    blue: {
+      text: "text-blue-400",
+      bg: "bg-blue-500/20",
+      border: "border-blue-500/30",
+      glow: "bg-glow-blue",
+      dot: "bg-blue-500",
+      shadow: "shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+    },
+    yellow: {
+      text: "text-yellow-400",
+      bg: "bg-yellow-500/20",
+      border: "border-yellow-500/30",
+      glow: "bg-glow-yellow",
+      dot: "bg-yellow-500",
+      shadow: "shadow-[0_0_8px_rgba(234,179,8,0.5)]"
+    },
+    emerald: {
+      text: "text-emerald-400",
+      bg: "bg-emerald-500/20",
+      border: "border-emerald-500/30",
+      glow: "bg-glow-emerald",
+      dot: "bg-emerald-500",
+      shadow: "shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+    }
+  };
+
+  const c = colorMaps[color] || colorMaps.orange;
+
   if (isLarge) {
     return (
-      <div className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 bg-slate-800 border-slate-700 ${active ? 'opacity-100 bg-glow-orange border-orange-500/30' : 'opacity-50'}`}>
+      <div className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 bg-slate-800 border-slate-700 ${active ? `opacity-100 ${c.glow} ${c.border}` : 'opacity-50'}`}>
         <div className="flex items-center">
-          <div className={`p-2 rounded-lg transition-colors ${active ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-900 text-slate-600'}`}>
+          <div className={`p-2 rounded-lg transition-colors ${active ? `${c.bg} ${c.text}` : 'bg-slate-900 text-slate-600'}`}>
             {React.cloneElement(icon, { className: active ? 'animate-pulse' : '' })}
           </div>
           <span className="ml-4 font-bold text-slate-300">{label}</span>
         </div>
         <div className="flex items-center space-x-2">
-          <span className={`text-[10px] font-black uppercase tracking-widest ${active ? 'text-orange-400' : 'text-slate-500'}`}>
+          <span className={`text-[10px] font-black uppercase tracking-widest ${active ? c.text : 'text-slate-500'}`}>
             {active ? 'Active' : 'Standby'}
           </span>
-          <div className={`w-3 h-3 rounded-full ${active ? 'bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-slate-700'}`} />
+          <div className={`w-3 h-3 rounded-full ${active ? `${c.dot} animate-pulse ${c.shadow}` : 'bg-slate-700'}`} />
         </div>
       </div>
     );
   }
   return (
-    <div className={`p-3 rounded-xl border border-slate-800 bg-slate-950 flex flex-col items-center justify-center space-y-1 transition-all ${active ? 'opacity-100 border-blue-500/30 bg-glow-blue' : 'opacity-40'}`}>
-      <div className={`w-2 h-2 rounded-full ${active ? color.replace('text', 'bg') : 'bg-slate-700'} ${active ? 'animate-pulse' : ''}`} />
+    <div className={`p-3 rounded-xl border border-slate-800 bg-slate-950 flex flex-col items-center justify-center space-y-1 transition-all ${active ? `opacity-100 ${c.border} ${c.glow}` : 'opacity-40'}`}>
+      <div className={`w-2 h-2 rounded-full ${active ? c.dot : 'bg-slate-700'} ${active ? 'animate-pulse' : ''}`} />
       <span className="text-[10px] font-bold uppercase text-slate-500">{label}</span>
     </div>
   );
