@@ -32,6 +32,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [role, setRole] = useState('user'); // 'viewer', 'user', 'admin'
+  const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]); // Default all days
 
   const fetchData = async () => {
     try {
@@ -106,17 +107,24 @@ function App() {
       type: formData.get('type'),
       start_time: formData.get('start'),
       end_time: formData.get('end'),
-      target_temp: parseFloat(formData.get('temp')),
-      days_of_week: "0,1,2,3,4,5,6",
+      target_temp: parseFloat(formData.get('temp')) || null,
+      days_of_week: selectedDays.join(','),
       active: true
     };
     try {
       await axios.post(`${API_BASE}/schedules/`, data);
       fetchData();
       e.target.reset();
+      setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
     } catch (err) {
       console.error("Error creating schedule", err);
     }
+  };
+
+  const toggleDay = (day) => {
+    setSelectedDays(prev => 
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+    );
   };
 
   const updateRestTemp = async (delta) => {
@@ -127,6 +135,17 @@ function App() {
       fetchData();
     } catch (err) {
       console.error("Error updating rest temp", err);
+    }
+  };
+
+  const updateSetPoint = async (delta) => {
+    if (role === 'viewer') return;
+    try {
+      const newTemp = settings.set_point + delta;
+      await axios.post(`${API_BASE}/settings/`, { set_point: newTemp });
+      fetchData();
+    } catch (err) {
+      console.error("Error updating set point", err);
     }
   };
 
@@ -367,6 +386,21 @@ function App() {
              {role === 'admin' && (
                <form onSubmit={createSchedule} className="pt-4 border-t border-slate-900 space-y-2">
                  <input name="name" placeholder="Name" className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
+                 
+                 {/* Day Selection */}
+                 <div className="flex justify-between px-1">
+                   {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, idx) => (
+                     <button
+                       key={idx}
+                       type="button"
+                       onClick={() => toggleDay(idx)}
+                       className={`w-5 h-5 rounded-full text-[8px] flex items-center justify-center font-bold transition ${selectedDays.includes(idx) ? 'bg-blue-500 text-white' : 'bg-slate-800 text-slate-500'}`}
+                     >
+                       {label}
+                     </button>
+                   ))}
+                 </div>
+
                  <div className="flex space-x-2">
                    <select name="type" className="flex-1 bg-slate-900 text-xs p-2 rounded outline-none border border-slate-800">
                      <option value="soak">Soak Cycle</option>
