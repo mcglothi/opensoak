@@ -276,6 +276,7 @@ function App() {
                 <span className={`text-lg font-semibold ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>
                   {isHeaterOn ? 'Heating...' : 'Ready'}
                 </span>
+                {status?.desired_state?.jet_pump && <span className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1">Jets Active</span>}
               </div>
             </div>
           </div>

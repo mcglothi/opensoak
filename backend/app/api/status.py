@@ -27,7 +27,7 @@ def get_status(db: Session = Depends(get_db)):
     }
 
 @router.get("/history")
-def get_history(limit: int = 100, db: Session = Depends(get_db)):
+def get_history(limit: int = 1440, db: Session = Depends(get_db)):
     logs = db.query(TemperatureLog).order_by(TemperatureLog.timestamp.desc()).limit(limit).all()
     return logs
 
