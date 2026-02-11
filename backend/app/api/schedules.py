@@ -42,6 +42,19 @@ def create_schedule(sched: ScheduleCreate, db: Session = Depends(get_db)):
     db.refresh(db_sched)
     return db_sched
 
+@router.put("/{schedule_id}", response_model=ScheduleResponse)
+def update_schedule(schedule_id: int, sched: ScheduleCreate, db: Session = Depends(get_db)):
+    db_sched = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not db_sched:
+        return {"error": "Schedule not found"}
+    
+    for key, value in sched.dict().items():
+        setattr(db_sched, key, value)
+    
+    db.commit()
+    db.refresh(db_sched)
+    return db_sched
+
 @router.delete("/{schedule_id}")
 def delete_schedule(schedule_id: int, db: Session = Depends(get_db)):
     sched = db.query(Schedule).filter(Schedule.id == schedule_id).first()
