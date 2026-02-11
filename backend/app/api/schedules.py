@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from ..db.session import SessionLocal
 from ..db.models import Schedule
 
@@ -9,12 +9,19 @@ router = APIRouter()
 
 class ScheduleCreate(BaseModel):
     name: str
-    type: str = "heat" # "heat", "rest", "jet"
+    type: str = "soak" # "soak", "clean"
     start_time: str
     end_time: str
     days_of_week: str
-    target_temp: float = None
+    target_temp: Optional[float] = None
+    light_on: bool = True
     active: bool = True
+
+class ScheduleResponse(ScheduleCreate):
+    id: int
+
+    class Config:
+        from_attributes = True
 
 def get_db():
     db = SessionLocal()
@@ -23,11 +30,11 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/", response_model=List[ScheduleCreate])
+@router.get("/", response_model=List[ScheduleResponse])
 def get_schedules(db: Session = Depends(get_db)):
     return db.query(Schedule).all()
 
-@router.post("/")
+@router.post("/", response_model=ScheduleResponse)
 def create_schedule(sched: ScheduleCreate, db: Session = Depends(get_db)):
     db_sched = Schedule(**sched.dict())
     db.add(db_sched)

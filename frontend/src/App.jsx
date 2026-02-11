@@ -111,7 +111,7 @@ function App() {
       type: formData.get('type'),
       start_time: formData.get('start'),
       end_time: formData.get('end'),
-      target_temp: parseFloat(formData.get('temp')) || null,
+      target_temp: formData.get('temp') ? parseFloat(formData.get('temp')) : null,
       light_on: formData.get('light_on') === 'on',
       days_of_week: selectedDays.join(','),
       active: true

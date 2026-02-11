@@ -30,7 +30,7 @@ class Schedule(Base):
     __tablename__ = "schedules"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    type = Column(String, default="heat") # "heat", "rest", "jet"
+    type = Column(String, default="soak") # "soak", "clean"
     start_time = Column(String) # HH:MM
     end_time = Column(String)   # HH:MM
     days_of_week = Column(String) # "0,1,2,3,4,5,6" (Monday=0)
