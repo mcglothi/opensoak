@@ -8,9 +8,10 @@ OpenSoak is a modern, open-source hot tub control system designed to run on a Ra
 
 -   **Safety-First Design:** 
     -   **Heater Interlock:** Hardware and software-level logic ensures the heater only runs when the circulation pump is active and flow is detected.
-    -   **High-Temp Cutoff:** Automatic emergency shutdown if the water exceeds 110°F.
+    -   **High-Temp Cutoff:** Automatic emergency shutdown if the water exceeds the user-configurable high limit.
 -   **Modern Web UI:** A responsive, dark-mode dashboard built with React and Tailwind CSS.
 -   **Intelligent Heating:** Hysteresis-based temperature control with "Rest" and "Soak" temperature modes.
+-   **Energy Tracking:** Real-time runtime monitoring and cost estimation for all system components.
 -   **Native Scheduler:** Set heating, cleaning, and ozone windows directly in the app.
 -   **Hardware Simulation:** Test the entire logic engine on any computer without needing a Raspberry Pi.
 
