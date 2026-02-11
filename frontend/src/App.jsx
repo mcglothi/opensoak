@@ -312,12 +312,12 @@ function App() {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/5 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none"></div>
       
-      <header className="flex justify-between items-center mb-8 relative z-10">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 relative z-10 space-y-4 md:space-y-0">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
             OpenSoak
           </h1>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-4 mt-1">
             <p className="text-slate-400 text-sm flex items-center">
               <ShieldCheck className={`w-3 h-3 mr-1 ${status?.safety_status === 'OK' ? 'text-emerald-500' : 'text-red-500'}`} /> 
               System: {status?.safety_status}
@@ -333,13 +333,13 @@ function App() {
           </div>
         </div>
         
-        <div className="flex items-center space-x-6">
+        <div className="flex flex-wrap items-center gap-4 md:space-x-6">
           {weather && !weather.error && weather.current && (
-            <div className="bg-slate-900 px-5 py-3 rounded-full border border-slate-800 flex items-center space-x-4 shadow-lg">
-              {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 28 })}
+            <div className="bg-slate-900 px-4 py-2 md:px-5 md:py-3 rounded-full border border-slate-800 flex items-center space-x-3 md:space-x-4 shadow-lg">
+              {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 24, className: "md:w-7 md:h-7" })}
               <div className="flex flex-col leading-tight">
-                <span className="text-xl font-bold text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
-                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{weather.city || "Unknown"}</span>
+                <span className="text-lg md:text-xl font-bold text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
+                <span className="text-[8px] md:text-[10px] text-slate-500 uppercase font-bold tracking-wider">{weather.city || "Unknown"}</span>
               </div>
             </div>
           )}
@@ -348,16 +348,16 @@ function App() {
           <select 
             value={role} 
             onChange={(e) => setRole(e.target.value)}
-            className="bg-slate-900 text-sm text-slate-400 border border-slate-800 rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition"
+            className="bg-slate-900 text-xs md:text-sm text-slate-400 border border-slate-800 rounded-lg px-2 py-1 md:px-3 md:py-2 outline-none focus:border-blue-500 transition"
           >
             <option value="viewer">Viewer Mode</option>
             <option value="user">User Mode</option>
             <option value="admin">Admin Mode</option>
           </select>
 
-          <div className="bg-slate-900 px-5 py-3 rounded-full border border-slate-800 flex items-center space-x-3 shadow-lg">
-            <Clock className="w-6 h-6 text-blue-400" />
-            <span className="text-lg font-bold text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          <div className="bg-slate-900 px-4 py-2 md:px-5 md:py-3 rounded-full border border-slate-800 flex items-center space-x-2 md:space-x-3 shadow-lg">
+            <Clock className="w-4 h-4 md:w-6 md:h-6 text-blue-400" />
+            <span className="text-sm md:text-lg font-bold text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
           </div>
         </div>
       </header>
@@ -365,13 +365,13 @@ function App() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Main Temp Card */}
-        <div className={`lg:col-span-2 bg-slate-900 rounded-3xl p-8 border transition-all duration-500 shadow-xl relative overflow-hidden ${isHeaterOn ? 'border-orange-500/50 bg-glow-orange' : 'border-slate-800'}`}>
-          <div className={`absolute top-0 right-0 p-8 opacity-10 ${isHeaterOn ? 'text-orange-500' : 'text-slate-700'}`}>
+        <div className={`lg:col-span-2 bg-slate-900 rounded-3xl p-6 md:p-8 border transition-all duration-500 shadow-xl relative overflow-hidden ${isHeaterOn ? 'border-orange-500/50 bg-glow-orange' : 'border-slate-800'}`}>
+          <div className={`absolute top-0 right-0 p-4 md:p-8 opacity-10 transition-transform duration-[5000ms] ${isHeaterOn ? 'text-orange-500' : 'text-slate-700'}`}>
             <div className="relative">
-               <Thermometer className="w-48 h-48" />
+               <Thermometer className="w-32 h-32 md:w-48 md:h-48" />
                {isHeaterOn && (
                  <div className="absolute inset-0 bg-orange-500 animate-fill" style={{ maskImage: 'url("/vite.svg")', maskRepeat: 'no-repeat', maskPosition: 'center' }}>
-                   <Thermometer className="w-48 h-48" />
+                   <Thermometer className="w-32 h-32 md:w-48 md:h-48" />
                  </div>
                )}
             </div>
@@ -379,18 +379,18 @@ function App() {
           
           <div className="relative z-10">
             <h2 className="text-slate-400 uppercase tracking-widest text-xs font-bold mb-4">Current Water Temperature</h2>
-            <div className="flex items-baseline">
-              <span className={`text-8xl font-black text-white transition-all ${isHeaterOn ? 'animate-float' : ''}`}>{currentTemp}</span>
-              <span className="text-4xl font-light text-slate-500 ml-2">°F</span>
+            <div className="flex flex-wrap items-baseline gap-4 md:gap-0">
+              <span className={`text-6xl md:text-8xl font-black text-white transition-all ${isHeaterOn ? 'animate-float' : ''}`}>{currentTemp}</span>
+              <span className="text-2xl md:text-4xl font-light text-slate-500 ml-2">°F</span>
               {timeLeft && (
-                <div className="ml-8 flex flex-col items-center justify-center bg-slate-950/50 border border-blue-500/30 px-4 py-2 rounded-2xl animate-pulse">
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">Time Remaining</span>
-                  <span className="text-3xl font-mono font-bold text-white">{timeLeft}</span>
+                <div className="md:ml-8 flex flex-col items-center justify-center bg-slate-950/50 border border-blue-500/30 px-3 py-1.5 md:px-4 md:py-2 rounded-2xl animate-pulse">
+                  <span className="text-[8px] md:text-[10px] font-black text-blue-400 uppercase tracking-tighter">Time Remaining</span>
+                  <span className="text-xl md:text-3xl font-mono font-bold text-white">{timeLeft}</span>
                 </div>
               )}
             </div>
             
-            <div className="mt-8 flex items-center space-x-4">
+            <div className="mt-8 flex flex-wrap items-center gap-4 md:gap-0 md:space-x-4">
               <div className="flex flex-col group relative">
                 <span className="text-slate-500 text-xs uppercase font-bold tracking-tight">Target Temp</span>
                 <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 w-32 z-50">
@@ -479,7 +479,7 @@ function App() {
 
             {/* Quick Soak Controls */}
             {role !== 'viewer' && !status?.desired_state?.manual_soak_active && (
-              <div className="mt-8 p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50 flex items-center justify-between group relative">
+              <div className="mt-8 p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between group relative gap-4">
                 <div className="absolute -top-8 left-0 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 z-50">
                   Start an immediate heating session. Jets and lights can be toggled manually.
                 </div>
@@ -494,7 +494,7 @@ function App() {
                   e.preventDefault();
                   const formData = new FormData(e.target);
                   startSoak(formData.get('temp'), formData.get('duration'));
-                }} className="flex items-center space-x-2">
+                }} className="flex items-center space-x-2 w-full sm:w-auto">
                   <div className="flex flex-col">
                     <span className="text-[8px] text-slate-500 uppercase font-bold ml-1">Temp</span>
                     <input name="temp" type="number" step="0.5" defaultValue="104" className="w-12 bg-slate-900 border border-slate-800 rounded text-[10px] p-1 text-orange-400 font-bold outline-none focus:border-orange-500" />
@@ -503,7 +503,7 @@ function App() {
                     <span className="text-[8px] text-slate-500 uppercase font-bold ml-1">Min</span>
                     <input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-12 bg-slate-900 border border-slate-800 rounded text-[10px] p-1 text-slate-300 outline-none focus:border-slate-700" />
                   </div>
-                  <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold uppercase px-4 py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20">
+                  <button type="submit" className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold uppercase px-4 py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20">
                     Soak!
                   </button>
                 </form>
@@ -557,9 +557,9 @@ function App() {
           {weather && weather.daily && (
             <div className="mt-8 pt-8 border-t border-slate-800">
               <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">7-Day Forecast</h3>
-              <div className="grid grid-cols-7 gap-3">
+              <div className="flex lg:grid lg:grid-cols-7 gap-3 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 custom-scrollbar">
                 {weather.daily.time.slice(0, 7).map((date, idx) => (
-                  <div key={date} className="flex flex-col items-center p-3 rounded-2xl bg-slate-950 border border-slate-800/50 shadow-sm transition-transform hover:scale-105">
+                  <div key={date} className="flex-shrink-0 w-24 lg:w-auto flex flex-col items-center p-3 rounded-2xl bg-slate-950 border border-slate-800/50 shadow-sm transition-transform hover:scale-105">
                     <span className="text-[10px] text-slate-400 uppercase font-black mb-3">
                       {new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}
                     </span>
