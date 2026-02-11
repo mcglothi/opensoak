@@ -99,7 +99,13 @@ class HotTubController:
 
     def get_all_states(self) -> Dict[str, bool]:
         if not HAS_HARDWARE:
-            return {p: False for p in [self.CIRC_PUMP, self.HEATER, self.JET_PUMP, self.LIGHT, self.OZONE]}
+            return {
+                "circ_pump": False,
+                "heater": False,
+                "jet_pump": False,
+                "light": False,
+                "ozone": False
+            }
             
         return {
             "circ_pump": self.get_relay_state(self.CIRC_PUMP),

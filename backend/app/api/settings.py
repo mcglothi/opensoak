@@ -14,6 +14,12 @@ class SettingsUpdate(BaseModel):
     max_temp_limit: float = None
     location: str = None
     default_soak_duration: int = None
+    kwh_cost: float = None
+    heater_watts: float = None
+    circ_pump_watts: float = None
+    jet_pump_watts: float = None
+    light_watts: float = None
+    ozone_watts: float = None
 
 def get_db():
     db = SessionLocal()
@@ -54,6 +60,13 @@ def update_settings(update: SettingsUpdate, db: Session = Depends(get_db)):
     
     if update.default_soak_duration is not None:
         settings.default_soak_duration = update.default_soak_duration
+    
+    if update.kwh_cost is not None: settings.kwh_cost = update.kwh_cost
+    if update.heater_watts is not None: settings.heater_watts = update.heater_watts
+    if update.circ_pump_watts is not None: settings.circ_pump_watts = update.circ_pump_watts
+    if update.jet_pump_watts is not None: settings.jet_pump_watts = update.jet_pump_watts
+    if update.light_watts is not None: settings.light_watts = update.light_watts
+    if update.ozone_watts is not None: settings.ozone_watts = update.ozone_watts
         
     db.commit()
     db.refresh(settings)

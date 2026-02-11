@@ -44,6 +44,7 @@ function App() {
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]); // Default all days
   const [historyLimit, setHistoryLimit] = useState(60); // Default 1 hour (60 min)
   const [usageLogs, setUsageLogs] = useState([]);
+  const [energyData, setEnergyData] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [weather, setWeather] = useState(null);
   const [tempInput, setTempInput] = useState("");
@@ -52,13 +53,14 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes] = await Promise.all([
+      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes] = await Promise.all([
         axios.get(`${API_BASE}/status/`),
         axios.get(`${API_BASE}/settings/`),
         axios.get(`${API_BASE}/status/history?limit=${historyLimit}`),
         axios.get(`${API_BASE}/schedules/`),
         axios.get(`${API_BASE}/status/logs`),
-        axios.get(`${API_BASE}/status/weather`)
+        axios.get(`${API_BASE}/status/weather`),
+        axios.get(`${API_BASE}/status/energy`)
       ]);
       
       setStatus(statusRes.data);
@@ -69,6 +71,7 @@ function App() {
       setSchedules(Array.isArray(schedulesRes.data) ? schedulesRes.data : []);
       setUsageLogs(Array.isArray(logsRes.data) ? logsRes.data : []);
       setWeather(weatherRes.data);
+      setEnergyData(energyRes.data);
       
       const historyData = Array.isArray(historyRes.data) ? historyRes.data : [];
       setHistory(historyData.map(h => ({
@@ -730,6 +733,45 @@ function App() {
             </>
           )}
 
+          {/* Energy Dashboard */}
+          <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800 bg-glow-blue/5">
+             <div className="flex justify-between items-center mb-4">
+               <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center">
+                 <Zap size={12} className="mr-1 text-orange-400" /> Operating Costs
+               </h3>
+               <span className="text-[8px] text-slate-600 font-bold uppercase">Live Estimates</span>
+             </div>
+             
+             {energyData ? (
+               <div className="space-y-4">
+                 <div className="grid grid-cols-2 gap-2">
+                   <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-800">
+                     <span className="text-[8px] text-slate-500 uppercase block">Today</span>
+                     <span className="text-lg font-black text-emerald-400">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
+                   </div>
+                   <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-800">
+                     <span className="text-[8px] text-slate-500 uppercase block">This Month</span>
+                     <span className="text-lg font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
+                   </div>
+                 </div>
+                 
+                 <div className="space-y-1">
+                   {Object.entries(energyData.today).map(([component, stats]) => (
+                     <div key={component} className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-400 capitalize">{component.replace('_', ' ')}</span>
+                       <div className="flex items-center space-x-2">
+                         <span className="text-slate-600">{(stats.runtime / 3600).toFixed(1)}h</span>
+                         <span className="text-slate-300 font-bold">${stats.cost.toFixed(2)}</span>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             ) : (
+               <p className="text-[10px] text-slate-600 italic">Calculating usage...</p>
+             )}
+          </div>
+
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
              <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Recent Activity</h3>
              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
@@ -916,6 +958,41 @@ function App() {
                    <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[8px] text-white p-1 rounded border border-slate-700 z-50">
                      Hard safety limit for water temperature. Trigger emergency shutdown if exceeded.
                    </div>
+                 </div>
+
+                 <div className="pt-4 border-t border-slate-900">
+                    <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3">Energy & Power Settings</h4>
+                    <div className="space-y-3">
+                      <div className="group relative">
+                        <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">Electric Cost ($/kWh)</label>
+                        <input 
+                          type="number"
+                          step="0.01"
+                          defaultValue={settings?.kwh_cost} 
+                          onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) })}
+                          className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: "Heater Watts", key: "heater_watts" },
+                          { label: "Circ Pump Watts", key: "circ_pump_watts" },
+                          { label: "Jet Pump Watts", key: "jet_pump_watts" },
+                          { label: "Light Watts", key: "light_watts" },
+                          { label: "Ozone Watts", key: "ozone_watts" }
+                        ].map(p => (
+                          <div key={p.key}>
+                            <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">{p.label}</label>
+                            <input 
+                              type="number"
+                              defaultValue={settings?.[p.key]} 
+                              onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.key]: parseFloat(e.target.value) })}
+                              className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                  </div>
                </div>
             </div>

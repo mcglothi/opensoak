@@ -67,6 +67,63 @@ def get_history(limit: int = 1440, db: Session = Depends(get_db)):
     return logs
 
 @router.get("/logs")
+
 def get_usage_logs(limit: int = 20, db: Session = Depends(get_db)):
+
     from ..db.models import UsageLog
+
     return db.query(UsageLog).order_by(UsageLog.timestamp.desc()).limit(limit).all()
+
+
+
+@router.get("/energy")
+
+def get_energy_stats(db: Session = Depends(get_db)):
+
+    from ..db.models import EnergyLog
+
+    from sqlalchemy import func
+
+    from datetime import datetime, timedelta
+
+    
+
+    today = datetime.now().date()
+
+    yesterday = today - timedelta(days=1)
+
+    month_start = today.replace(day=1)
+
+    
+
+    def get_summary(start_date):
+
+        rows = db.query(
+
+            EnergyLog.component,
+
+            func.sum(EnergyLog.kwh_used).label("kwh"),
+
+            func.sum(EnergyLog.estimated_cost).label("cost"),
+
+            func.sum(EnergyLog.runtime_seconds).label("runtime")
+
+        ).filter(EnergyLog.timestamp >= start_date).group_by(EnergyLog.component).all()
+
+        
+
+        return {r.component: {"kwh": r.kwh, "cost": r.cost, "runtime": r.runtime} for r in rows}
+
+
+
+    return {
+
+        "today": get_summary(today),
+
+        "yesterday": get_summary(yesterday),
+
+        "month": get_summary(month_start),
+
+        "all_time": get_summary(datetime(2000, 1, 1))
+
+    }

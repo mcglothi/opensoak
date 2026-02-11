@@ -3,7 +3,7 @@ import time
 import os
 from datetime import datetime
 from ..db.session import SessionLocal
-from ..db.models import Settings, TemperatureLog, SystemState, UsageLog
+from ..db.models import Settings, TemperatureLog, SystemState, UsageLog, EnergyLog
 
 class HotTubEngine:
     def __init__(self):
@@ -25,6 +25,18 @@ class HotTubEngine:
         self.flow_error_count = 0
         self.system_locked = False
         self.circ_start_time = 0
+        
+        # Energy Tracking
+        self.last_tick_time = time.time()
+        self.runtimes = {
+            "heater": 0.0,
+            "circ_pump": 0.0,
+            "jet_pump": 0.0,
+            "light": 0.0,
+            "ozone": 0.0
+        }
+        self.last_energy_log_time = time.time()
+        self.energy_log_interval = 3600 # Log energy every hour
 
     def start(self):
         self.running = True
@@ -41,6 +53,36 @@ class HotTubEngine:
         self.flow_error_count = 0
         self.system_locked = False
         self.safety_status = "OK"
+
+    def _log_energy(self, db, settings):
+        try:
+            power_map = {
+                "heater": settings.heater_watts,
+                "circ_pump": settings.circ_pump_watts,
+                "jet_pump": settings.jet_pump_watts,
+                "light": settings.light_watts,
+                "ozone": settings.ozone_watts
+            }
+            
+            for component, seconds in self.runtimes.items():
+                if seconds > 0:
+                    watts = power_map.get(component, 0)
+                    kwh = (watts * (seconds / 3600)) / 1000
+                    cost = kwh * settings.kwh_cost
+                    
+                    log = EnergyLog(
+                        component=component,
+                        runtime_seconds=seconds,
+                        kwh_used=kwh,
+                        estimated_cost=cost
+                    )
+                    db.add(log)
+                    # Reset memory counter for next period
+                    self.runtimes[component] = 0.0
+            
+            db.commit()
+        except Exception as e:
+            print(f"Error logging energy: {e}")
 
     def _run(self):
         while self.running:
@@ -147,6 +189,20 @@ class HotTubEngine:
 
             self.controller.set_relay(self.controller.JET_PUMP, state.jet_pump)
             self.controller.set_relay(self.controller.LIGHT, state.light)
+
+            # --- ENERGY TRACKING ---
+            now = time.time()
+            dt = now - self.last_tick_time
+            self.last_tick_time = now
+            
+            relay_states = self.controller.get_all_states()
+            for component, is_on in relay_states.items():
+                if is_on:
+                    self.runtimes[component] += dt
+
+            if now - self.last_energy_log_time >= self.energy_log_interval:
+                self._log_energy(db, settings)
+                self.last_energy_log_time = now
 
             # --- LOGGING ---
             if time.time() - self.last_log_time >= self.log_interval:
