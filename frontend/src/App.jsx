@@ -529,10 +529,10 @@ function App() {
             <div className="mt-8 pt-8 border-t border-slate-800">
               <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">7-Day Forecast</h3>
               <div className="grid grid-cols-7 gap-3">
-                {weather.daily.time.map((date, idx) => (
+                {weather.daily.time.slice(0, 7).map((date, idx) => (
                   <div key={date} className="flex flex-col items-center p-3 rounded-2xl bg-slate-950 border border-slate-800/50 shadow-sm transition-transform hover:scale-105">
                     <span className="text-[10px] text-slate-400 uppercase font-black mb-3">
-                      {new Date(date).toLocaleDateString([], { weekday: 'short' })}
+                      {new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}
                     </span>
                     <div className="mb-3 text-blue-400">
                       {React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 28 })}
@@ -550,39 +550,47 @@ function App() {
           {/* Hourly Forecast */}
           {weather && weather.hourly && (
             <div className="mt-8 pt-8 border-t border-slate-800">
-              <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">Hourly Forecast (Next 24h)</h3>
+              <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">Hourly Forecast (Next 12h)</h3>
               <div className="flex space-x-3 overflow-x-auto pb-4 custom-scrollbar">
-                {weather.hourly.time.slice(0, 24).map((time, idx) => {
-                  const hourDate = new Date(time);
-                  const hour = hourDate.getHours();
-                  const displayTime = hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
-                  const rainProb = weather.hourly.precipitation_probability[idx];
-                  const windSpeed = weather.hourly.wind_speed_10m[idx];
-                  const windDir = weather.hourly.wind_direction_10m[idx];
+                {(() => {
+                  const now = new Date();
+                  const currentHourIndex = weather.hourly.time.findIndex(t => new Date(t) >= now);
+                  const startIndex = currentHourIndex >= 0 ? currentHourIndex : 0;
                   
-                  return (
-                    <div key={time} className="flex-shrink-0 flex flex-col items-center p-3 w-24 rounded-2xl bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/20 transition-colors">
-                      <span className="text-[10px] text-slate-500 font-bold mb-2">{displayTime}</span>
-                      <span className="text-lg font-bold text-white mb-1">{weather.hourly.temperature_2m[idx].toFixed(0)}°</span>
-                      
-                      <div className="flex items-center text-[10px] text-blue-400 mb-1 font-bold">
-                        <Umbrella size={10} className="mr-1" />
-                        {rainProb}%
-                      </div>
-                      
-                      <div className="flex flex-col items-center text-[8px] text-slate-500">
-                        <div className="flex items-center space-x-1 mb-0.5">
-                          <Wind size={10} />
-                          <span>{windSpeed.toFixed(0)} mph</span>
+                  return weather.hourly.time.slice(startIndex, startIndex + 12).map((time, idx) => {
+                    const actualIdx = startIndex + idx;
+                    const hourDate = new Date(time);
+                    const hour = hourDate.getHours();
+                    const displayTime = hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+                    const rainProb = weather.hourly.precipitation_probability[actualIdx];
+                    const windSpeed = weather.hourly.wind_speed_10m[actualIdx];
+                    const windDir = weather.hourly.wind_direction_10m[actualIdx];
+                    const temp = weather.hourly.temperature_2m[actualIdx];
+                    
+                    return (
+                      <div key={time} className="flex-shrink-0 flex flex-col items-center p-3 w-24 rounded-2xl bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/20 transition-colors">
+                        <span className="text-[10px] text-slate-500 font-bold mb-2">{displayTime}</span>
+                        <span className="text-lg font-bold text-white mb-1">{temp?.toFixed(0)}°</span>
+                        
+                        <div className="flex items-center text-[10px] text-blue-400 mb-1 font-bold">
+                          <Umbrella size={10} className="mr-1" />
+                          {rainProb}%
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <Navigation size={8} style={{ transform: `rotate(${windDir}deg)` }} className="text-slate-400" />
-                          <span className="uppercase">{getWindDirLabel(windDir)}</span>
+                        
+                        <div className="flex flex-col items-center text-[8px] text-slate-500">
+                          <div className="flex items-center space-x-1 mb-0.5">
+                            <Wind size={10} />
+                            <span>{windSpeed?.toFixed(0)} mph</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Navigation size={8} style={{ transform: `rotate(${windDir}deg)` }} className="text-slate-400" />
+                            <span className="uppercase">{getWindDirLabel(windDir)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
