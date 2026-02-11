@@ -42,8 +42,10 @@ class HotTubScheduler:
 
         event_details = f"Schedule: {sched.name}"
         if sched.type == "soak":
+            # Soak: Set heat to target, turn on jets and lights
             state.heater = True
-            settings.set_point = sched.target_temp
+            if sched.target_temp is not None:
+                settings.set_point = sched.target_temp
             state.jet_pump = True
             state.light = getattr(sched, 'light_on', True)
             event_details += f" (Temp: {sched.target_temp}F, Light: {'On' if state.light else 'Off'})"

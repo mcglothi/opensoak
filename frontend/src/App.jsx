@@ -123,6 +123,8 @@ function App() {
       setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
     } catch (err) {
       console.error("Error creating schedule", err);
+      const msg = err.response?.data?.detail?.[0]?.msg || err.response?.data?.detail || err.message;
+      alert(`Error: ${msg}`);
     }
   };
 
@@ -251,8 +253,8 @@ function App() {
                   <span className="text-2xl font-bold text-blue-400">{settings?.set_point}°F</span>
                   {role !== 'viewer' && (
                     <div className="flex space-x-1">
-                      <button onClick={() => updateSetPoint(0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronUp /></button>
-                      <button onClick={() => updateSetPoint(-0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronDown /></button>
+                      <button onClick={() => updateSetPoint(0.1)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronUp /></button>
+                      <button onClick={() => updateSetPoint(-0.1)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
@@ -264,8 +266,8 @@ function App() {
                   <span className="text-lg font-bold text-slate-400">{settings?.default_rest_temp}°F</span>
                   {role === 'admin' && (
                     <div className="flex space-x-1">
-                      <button onClick={() => updateRestTemp(0.5)} className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronUp /></button>
-                      <button onClick={() => updateRestTemp(-0.5)} className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronDown /></button>
+                      <button onClick={() => updateRestTemp(0.1)} className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronUp /></button>
+                      <button onClick={() => updateRestTemp(-0.1)} className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
@@ -460,7 +462,7 @@ function App() {
                      <option value="soak">Soak Cycle</option>
                      <option value="clean">Clean Cycle</option>
                    </select>
-                   <input name="temp" type="number" placeholder="Temp" className="w-16 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" />
+                   <input name="temp" type="number" step="0.1" placeholder="Temp" className="w-16 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" />
                    <div className="flex items-center bg-slate-900 px-2 rounded border border-slate-800">
                       <input name="light_on" type="checkbox" defaultChecked className="w-3 h-3" />
                       <Lightbulb size={12} className="ml-1 text-slate-500" />
