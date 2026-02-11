@@ -2,16 +2,16 @@ import threading
 import time
 import os
 from datetime import datetime
-from ..db.session import SessionLocal
-from ..db.models import Settings, TemperatureLog, SystemState
+from app.db.session import SessionLocal
+from app.db.models import Settings, TemperatureLog, SystemState
 
 class HotTubEngine:
     def __init__(self):
         if os.getenv("SIMULATE_HARDWARE", "False").lower() == "true":
-            from ...hardware.mock_controller import MockHotTubController
+            from hardware.mock_controller import MockHotTubController
             self.controller = MockHotTubController()
         else:
-            from ...hardware.controller import HotTubController
+            from hardware.controller import HotTubController
             self.controller = HotTubController()
             
         self.running = False
@@ -139,9 +139,6 @@ class HotTubEngine:
                 db.add(log)
                 db.commit()
                 self.last_log_time = time.time()
-
-        finally:
-            db.close()
 
         finally:
             db.close()

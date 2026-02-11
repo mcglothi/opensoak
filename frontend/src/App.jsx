@@ -29,6 +29,7 @@ function App() {
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState('user'); // 'viewer', 'user', 'admin'
 
   const fetchData = async () => {
     try {
@@ -56,6 +57,9 @@ function App() {
   }, []);
 
   const toggleControl = async (key, val) => {
+    if (role === 'viewer') return;
+    if (role === 'user' && (key === 'circ_pump' || key === 'ozone')) return;
+    
     try {
       await axios.post(`${API_BASE}/control/`, { [key]: val });
       fetchData();
@@ -65,6 +69,7 @@ function App() {
   };
 
   const resetFaults = async () => {
+    if (role !== 'admin') return;
     try {
       await axios.post(`${API_BASE}/control/reset-faults`);
       fetchData();
@@ -74,6 +79,7 @@ function App() {
   };
 
   const updateSetPoint = async (delta) => {
+    if (role === 'viewer') return;
     try {
       const newTemp = settings.set_point + delta;
       await axios.post(`${API_BASE}/settings/`, { set_point: newTemp });
@@ -104,7 +110,7 @@ function App() {
               <ShieldCheck className={`w-3 h-3 mr-1 ${status?.safety_status === 'OK' ? 'text-emerald-500' : 'text-red-500'}`} /> 
               System: {status?.safety_status}
             </p>
-            {status?.safety_status !== 'OK' && (
+            {status?.safety_status !== 'OK' && role === 'admin' && (
               <button 
                 onClick={resetFaults}
                 className="text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 px-2 py-1 rounded border border-red-500/50 transition"
@@ -114,9 +120,23 @@ function App() {
             )}
           </div>
         </div>
-        <div className="bg-slate-900 px-4 py-2 rounded-full border border-slate-800 flex items-center space-x-2">
-          <Clock className="w-4 h-4 text-blue-400" />
-          <span className="text-sm font-medium">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        
+        <div className="flex items-center space-x-4">
+          {/* Temporary Role Switcher */}
+          <select 
+            value={role} 
+            onChange={(e) => setRole(e.target.value)}
+            className="bg-slate-900 text-xs text-slate-400 border border-slate-800 rounded px-2 py-1 outline-none"
+          >
+            <option value="viewer">Viewer Mode</option>
+            <option value="user">User Mode</option>
+            <option value="admin">Admin Mode</option>
+          </select>
+
+          <div className="bg-slate-900 px-4 py-2 rounded-full border border-slate-800 flex items-center space-x-2">
+            <Clock className="w-4 h-4 text-blue-400" />
+            <span className="text-sm font-medium">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
         </div>
       </header>
 
@@ -140,10 +160,12 @@ function App() {
                 <span className="text-slate-500 text-xs uppercase font-bold tracking-tight">Target Temp</span>
                 <div className="flex items-center space-x-4">
                   <span className="text-2xl font-bold text-blue-400">{settings?.set_point}°F</span>
-                  <div className="flex space-x-1">
-                    <button onClick={() => updateSetPoint(0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronUp /></button>
-                    <button onClick={() => updateSetPoint(-0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronDown /></button>
-                  </div>
+                  {role !== 'viewer' && (
+                    <div className="flex space-x-1">
+                      <button onClick={() => updateSetPoint(0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronUp /></button>
+                      <button onClick={() => updateSetPoint(-0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronDown /></button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="h-10 w-px bg-slate-800 mx-4"></div>
@@ -192,6 +214,7 @@ function App() {
               active={status?.desired_state?.heater} 
               onToggle={(v) => toggleControl('heater', v)}
               color="orange"
+              disabled={role === 'viewer'}
             />
             <ControlToggle 
               label="Jets" 
@@ -199,6 +222,7 @@ function App() {
               active={status?.desired_state?.jet_pump} 
               onToggle={(v) => toggleControl('jet_pump', v)}
               color="blue"
+              disabled={role === 'viewer'}
             />
             <ControlToggle 
               label="Light" 
@@ -206,24 +230,50 @@ function App() {
               active={status?.desired_state?.light} 
               onToggle={(v) => toggleControl('light', v)}
               color="yellow"
+              disabled={role === 'viewer'}
             />
-            <ControlToggle 
-              label="Circ Pump" 
-              icon={<Droplets />} 
-              active={status?.desired_state?.circ_pump} 
-              onToggle={(v) => toggleControl('circ_pump', v)}
-              color="emerald"
-            />
+            
+            {(role === 'admin') && (
+              <>
+                <div className="pt-4 border-t border-slate-800">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Admin Controls</h3>
+                  <div className="space-y-4">
+                    <ControlToggle 
+                      label="Circ Pump" 
+                      icon={<Droplets />} 
+                      active={status?.desired_state?.circ_pump} 
+                      onToggle={(v) => toggleControl('circ_pump', v)}
+                      color="emerald"
+                    />
+                    <ControlToggle 
+                      label="Ozone" 
+                      icon={<Zap />} 
+                      active={status?.desired_state?.ozone} 
+                      onToggle={(v) => toggleControl('ozone', v)}
+                      color="blue"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            
+            {role === 'user' && (
+              <div className="pt-4 border-t border-slate-800">
+                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-center">
+                  Admin features locked
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="mt-12 p-4 bg-slate-950 rounded-2xl border border-slate-800">
+          <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
              <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Safety Info</h3>
              <ul className="text-xs text-slate-400 space-y-2">
                 <li className="flex items-start">
-                  <span className="text-emerald-500 mr-2">✓</span> Heater interlocked with circulation pump
+                  <span className="text-emerald-500 mr-2">✓</span> Heater interlocked with flow
                 </li>
                 <li className="flex items-start">
-                  <span className="text-emerald-500 mr-2">✓</span> High-temp cutoff at {settings?.max_temp_limit}°F
+                  <span className="text-emerald-500 mr-2">✓</span> High-temp cutoff active
                 </li>
              </ul>
           </div>
@@ -233,6 +283,36 @@ function App() {
     </div>
   );
 }
+
+function ControlToggle({ label, icon, active, onToggle, color, disabled }) {
+  const colors = {
+    orange: "bg-orange-500/20 text-orange-400 border-orange-500/50",
+    blue: "bg-blue-500/20 text-blue-400 border-blue-500/50",
+    yellow: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
+    emerald: "bg-emerald-500/20 text-emerald-400 border-emerald-500/50",
+    gray: "bg-slate-800 text-slate-400 border-slate-700"
+  };
+
+  return (
+    <button 
+      onClick={() => !disabled && onToggle(!active)}
+      disabled={disabled}
+      className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${active ? colors[color] : colors.gray}`}
+    >
+      <div className="flex items-center">
+        <div className={`p-2 rounded-lg ${active ? 'bg-white/10' : 'bg-slate-900'}`}>
+          {React.cloneElement(icon, { size: 20 })}
+        </div>
+        <span className="ml-4 font-bold">{label}</span>
+      </div>
+      <div className={`w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}`}>
+        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'}`} />
+      </div>
+    </button>
+  );
+}
+
+export default App;
 
 function ControlToggle({ label, icon, active, onToggle, color }) {
   const colors = {

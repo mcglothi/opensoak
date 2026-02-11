@@ -29,6 +29,10 @@ class HotTubController:
     TEMP_OFFSET = 4
 
     def __init__(self):
+        if not HAS_HARDWARE:
+            print("Hardware not detected or RPi.GPIO not installed. Initialization skipped.")
+            return
+
         # GPIO Setup
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
@@ -54,6 +58,9 @@ class HotTubController:
         return np.linalg.lstsq(A, inv_temp_values, rcond=None)[0]
 
     def get_temperature(self, sensor: int = 0) -> float:
+        if not HAS_HARDWARE:
+            return 0.0
+            
         try:
             chan = self.chan0 if sensor == 0 else self.chan1
             adc_voltage = chan.voltage
@@ -68,14 +75,10 @@ class HotTubController:
             print(f"Error reading temperature on sensor {sensor}: {e}")
             return 0.0
 
-    def is_flow_detected(self) -> bool:
-        """
-        Placeholder for flow switch logic. 
-        Returns True for now until we know the GPIO pin.
-        """
-        return True
-
     def set_relay(self, pin: int, state: bool):
+        if not HAS_HARDWARE:
+            return False
+            
         """
         Set relay state. state=True means ON (GPIO.LOW), state=False means OFF (GPIO.HIGH).
         """
@@ -89,10 +92,15 @@ class HotTubController:
         return True
 
     def get_relay_state(self, pin: int) -> bool:
+        if not HAS_HARDWARE:
+            return False
         """Returns True if ON (Low), False if OFF (High)"""
         return GPIO.input(pin) == GPIO.LOW
 
     def get_all_states(self) -> Dict[str, bool]:
+        if not HAS_HARDWARE:
+            return {p: False for p in [self.CIRC_PUMP, self.HEATER, self.JET_PUMP, self.LIGHT, self.OZONE]}
+            
         return {
             "circ_pump": self.get_relay_state(self.CIRC_PUMP),
             "heater": self.get_relay_state(self.HEATER),
@@ -101,12 +109,24 @@ class HotTubController:
             "ozone": self.get_relay_state(self.OZONE)
         }
 
+    def is_flow_detected(self) -> bool:
+        """
+        Placeholder for flow switch logic. 
+        Returns True for now until we know the GPIO pin.
+        """
+        return True
+
     def emergency_shutdown(self):
+        if not HAS_HARDWARE:
+            return
+            
         """Turn off everything immediately."""
         for pin in self.pins:
             GPIO.output(pin, GPIO.HIGH)
         print("EMERGENCY SHUTDOWN EXECUTED")
 
     def cleanup(self):
+        if not HAS_HARDWARE:
+            return
         self.emergency_shutdown()
         GPIO.cleanup()
