@@ -119,14 +119,14 @@ function App() {
     }
   };
 
-  const updateSetPoint = async (delta) => {
-    if (role === 'viewer') return;
+  const updateRestTemp = async (delta) => {
+    if (role !== 'admin') return;
     try {
-      const newTemp = settings.set_point + delta;
-      await axios.post(`${API_BASE}/settings/`, { set_point: newTemp });
+      const newTemp = settings.default_rest_temp + delta;
+      await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp });
       fetchData();
     } catch (err) {
-      console.error("Error updating set point", err);
+      console.error("Error updating rest temp", err);
     }
   };
 
@@ -219,6 +219,19 @@ function App() {
                     <div className="flex space-x-1">
                       <button onClick={() => updateSetPoint(0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronUp /></button>
                       <button onClick={() => updateSetPoint(-0.5)} className="p-1 hover:bg-slate-800 rounded transition"><ChevronDown /></button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="h-10 w-px bg-slate-800 mx-4"></div>
+              <div className="flex flex-col">
+                <span className="text-slate-500 text-xs uppercase font-bold tracking-tight">Rest Temp</span>
+                <div className="flex items-center space-x-4">
+                  <span className="text-lg font-bold text-slate-400">{settings?.default_rest_temp}°F</span>
+                  {role === 'admin' && (
+                    <div className="flex space-x-1">
+                      <button onClick={() => updateRestTemp(0.5)} className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronUp /></button>
+                      <button onClick={() => updateRestTemp(-0.5)} className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
@@ -355,10 +368,9 @@ function App() {
                <form onSubmit={createSchedule} className="pt-4 border-t border-slate-900 space-y-2">
                  <input name="name" placeholder="Name" className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />
                  <div className="flex space-x-2">
-                   <select name="type" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800">
-                     <option value="heat">Heat</option>
-                     <option value="rest">Rest</option>
-                     <option value="jet">Jet Cycle</option>
+                   <select name="type" className="flex-1 bg-slate-900 text-xs p-2 rounded outline-none border border-slate-800">
+                     <option value="soak">Soak Cycle</option>
+                     <option value="clean">Clean Cycle</option>
                    </select>
                    <input name="temp" type="number" placeholder="Temp" className="w-16 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" />
                  </div>

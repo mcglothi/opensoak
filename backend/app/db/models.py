@@ -7,7 +7,7 @@ Base = declarative_base()
 class Settings(Base):
     __tablename__ = "settings"
     id = Column(Integer, primary_key=True, index=True)
-    set_point = Column(Float, default=104.0)
+    set_point = Column(Float, default=80.0) # This is the current target (Rest or Soak)
     default_rest_temp = Column(Float, default=80.0)
     hysteresis_upper = Column(Float, default=0.5)
     hysteresis_lower = Column(Float, default=1.0)

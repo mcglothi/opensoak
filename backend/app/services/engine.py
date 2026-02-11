@@ -82,7 +82,8 @@ class HotTubEngine:
                 return
 
             # --- CIRCULATION & FLOW LOGIC ---
-            needs_circ = state.circ_pump or state.heater or state.ozone
+            # Default to ON unless system is locked (Shutdown or Fault)
+            needs_circ = not self.system_locked
             
             is_circ_currently_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
             
@@ -96,22 +97,21 @@ class HotTubEngine:
                 if time.time() - self.circ_start_time > 5:
                     if not self.controller.is_flow_detected():
                         self.flow_error_count += 1
-                        print(f"FLOW ERROR {self.flow_error_count}/5")
                         if self.flow_error_count >= 5:
                             self.safety_status = "STOP: NO FLOW DETECTED"
                             self.system_locked = True
                             self.controller.emergency_shutdown()
                             return
                     else:
-                        self.flow_error_count = 0 # Reset count on success
+                        self.flow_error_count = 0 
             else:
                 self.controller.set_relay(self.controller.CIRC_PUMP, False)
-                self.flow_error_count = 0
 
             # --- HEATER LOGIC (Hysteresis) ---
             is_circ_actually_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
             is_flow_ok = self.controller.is_flow_detected()
 
+            # Heater runs if Master toggle is ON AND safety conditions met
             if state.heater and is_circ_actually_on and is_flow_ok:
                 target = settings.set_point
                 upper = target + settings.hysteresis_upper
@@ -125,7 +125,8 @@ class HotTubEngine:
                 self.controller.set_relay(self.controller.HEATER, False)
 
             # --- OZONE & OTHER ---
-            if state.ozone and is_circ_actually_on and is_flow_ok:
+            # Ozone runs with Circ Pump by default unless locked
+            if is_circ_actually_on and is_flow_ok and not self.system_locked:
                 self.controller.set_relay(self.controller.OZONE, True)
             else:
                 self.controller.set_relay(self.controller.OZONE, False)

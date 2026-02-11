@@ -40,13 +40,14 @@ class HotTubScheduler:
         if not state or not settings:
             return
 
-        if sched.type == "heat":
+        if sched.type == "soak":
+            # Soak: Set heat to target, turn on jets and lights
             state.heater = True
             settings.set_point = sched.target_temp
-        elif sched.type == "rest":
-            # Rest mode usually means dropping temp and leaving heater in auto/current state
-            settings.set_point = sched.target_temp
-        elif sched.type == "jet":
+            state.jet_pump = True
+            state.light = True
+        elif sched.type == "clean":
+            # Clean: Just run jets
             state.jet_pump = True
             
         db.commit()
@@ -59,14 +60,16 @@ class HotTubScheduler:
         if not state:
             return
 
-        if sched.type == "jet":
-            state.jet_pump = False
-        elif sched.type == "heat":
-            # Revert to rest temp if available
+        # Revert to REST state
+        if sched.type == "soak":
             if settings:
                 settings.set_point = settings.default_rest_temp
-            state.heater = False # Or maybe keep it on auto? 
-            # Usually people want it to just maintain the rest temp.
+            state.jet_pump = False
+            state.light = False
+            # Keep heater ON or OFF? Usually ON to maintain rest temp
+            state.heater = True 
+        elif sched.type == "clean":
+            state.jet_pump = False
             
         db.commit()
 
