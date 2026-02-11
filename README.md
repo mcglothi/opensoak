@@ -2,7 +2,19 @@
 
 OpenSoak is a modern, open-source hot tub control system designed to run on a Raspberry Pi. It replaces traditional hardware controllers with a safety-first Python engine, a robust FastAPI REST API, and a beautiful React-based web dashboard.
 
-![OpenSoak Dashboard](Screenshot.png)
+![OpenSoak User Dashboard](docs/screenshots/Screenshot-User.png)
+
+## 📸 Screenshots
+
+### Web Interface
+| User Mode (Active Soak) | Admin Mode (Settings) | Viewer Mode |
+| :---: | :---: | :---: |
+| ![User Mode](docs/screenshots/Screenshot-User.png) | ![Admin Mode](docs/screenshots/Screenshot-Admin.png) | ![Viewer Mode](docs/screenshots/Screenshot-Viewer.png) |
+
+### Mobile Experience
+| Mobile Admin 1 | Mobile Admin 2 |
+| :---: | :---: |
+| ![Mobile Admin 1](docs/screenshots/Screenshot-Mobile-Admin1.png) | ![Mobile Admin 2](docs/screenshots/Screenshot-Mobile-Admin2.png) |
 
 ## 🚀 Features
 
