@@ -30,3 +30,8 @@ def get_status(db: Session = Depends(get_db)):
 def get_history(limit: int = 100, db: Session = Depends(get_db)):
     logs = db.query(TemperatureLog).order_by(TemperatureLog.timestamp.desc()).limit(limit).all()
     return logs
+
+@router.get("/logs")
+def get_usage_logs(limit: int = 20, db: Session = Depends(get_db)):
+    from ..db.models import UsageLog
+    return db.query(UsageLog).order_by(UsageLog.timestamp.desc()).limit(limit).all()

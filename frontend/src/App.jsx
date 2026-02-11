@@ -33,18 +33,22 @@ function App() {
   const [error, setError] = useState(null);
   const [role, setRole] = useState('user'); // 'viewer', 'user', 'admin'
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]); // Default all days
+  const [historyLimit, setHistoryLimit] = useState(60); // Default 1 hour (60 min)
+  const [usageLogs, setUsageLogs] = useState([]);
 
   const fetchData = async () => {
     try {
-      const [statusRes, settingsRes, historyRes, schedulesRes] = await Promise.all([
+      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes] = await Promise.all([
         axios.get(`${API_BASE}/status/`),
         axios.get(`${API_BASE}/settings/`),
-        axios.get(`${API_BASE}/status/history`),
-        axios.get(`${API_BASE}/schedules/`)
+        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`),
+        axios.get(`${API_BASE}/schedules/`),
+        axios.get(`${API_BASE}/status/logs`)
       ]);
       setStatus(statusRes.data);
       setSettings(settingsRes.data);
       setSchedules(schedulesRes.data);
+      setUsageLogs(logsRes.data);
       
       const historyData = Array.isArray(historyRes.data) ? historyRes.data : [];
       setHistory(historyData.map(h => ({
@@ -108,6 +112,7 @@ function App() {
       start_time: formData.get('start'),
       end_time: formData.get('end'),
       target_temp: parseFloat(formData.get('temp')) || null,
+      light_on: formData.get('light_on') === 'on',
       days_of_week: selectedDays.join(','),
       active: true
     };
@@ -121,9 +126,19 @@ function App() {
     }
   };
 
+  const deleteSchedule = async (id) => {
+    if (role !== 'admin') return;
+    try {
+      await axios.delete(`${API_BASE}/schedules/${id}`);
+      fetchData();
+    } catch (err) {
+      console.error("Error deleting schedule", err);
+    }
+  };
+
   const toggleDay = (day) => {
     setSelectedDays(prev => 
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort()
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort((a,b) => a - b)
     );
   };
 
@@ -265,8 +280,21 @@ function App() {
             </div>
           </div>
 
-          <div className="mt-12 h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="mt-12">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-slate-500 text-xs font-bold uppercase">Temperature History</h3>
+              <select 
+                value={historyLimit} 
+                onChange={(e) => setHistoryLimit(parseInt(e.target.value))}
+                className="bg-slate-950 text-[10px] text-slate-400 border border-slate-800 rounded px-2 py-1 outline-none"
+              >
+                <option value="60">Last 1 Hour</option>
+                <option value="360">Last 6 Hours</option>
+                <option value="1440">Last 24 Hours</option>
+              </select>
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
               <LineChart data={history} margin={{ left: -20, right: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="time" hide />
@@ -366,18 +394,42 @@ function App() {
           </div>
 
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
+             <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Recent Activity</h3>
+             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+               {usageLogs.length === 0 ? (
+                 <p className="text-[10px] text-slate-600 italic">No recent activity</p>
+               ) : (
+                 usageLogs.map(l => (
+                   <div key={l.id} className="text-[10px] border-l-2 border-blue-500/30 pl-2 py-1">
+                     <p className="text-slate-300 font-bold">{l.event}</p>
+                     <p className="text-slate-500 truncate">{l.details}</p>
+                     <p className="text-[8px] text-slate-600 italic">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
+                   </div>
+                 ))
+               )}
+             </div>
+          </div>
+
+          <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
              <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Current Schedules</h3>
              {schedules.length === 0 ? (
                <p className="text-[10px] text-slate-600 italic">No schedules active</p>
              ) : (
                <div className="space-y-2 mb-4">
                  {schedules.map(s => (
-                   <div key={s.id} className="flex justify-between items-center text-[10px]">
-                     <div>
-                        <span className="text-slate-300 font-bold">{s.name}</span>
-                        <span className="text-slate-500 ml-2">({s.type})</span>
+                   <div key={s.id} className="group flex justify-between items-center text-[10px]">
+                     <div className="flex flex-col">
+                        <div className="flex items-center">
+                          <span className="text-slate-300 font-bold">{s.name}</span>
+                          <span className="text-slate-500 ml-2">({s.type})</span>
+                        </div>
+                        <span className="text-slate-500">{s.start_time} - {s.end_time}</span>
                      </div>
-                     <span className="text-slate-500">{s.start_time} - {s.end_time}</span>
+                     {role === 'admin' && (
+                       <button onClick={() => deleteSchedule(s.id)} className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 p-1 transition">
+                         ✕
+                       </button>
+                     )}
                    </div>
                  ))}
                </div>
@@ -407,6 +459,10 @@ function App() {
                      <option value="clean">Clean Cycle</option>
                    </select>
                    <input name="temp" type="number" placeholder="Temp" className="w-16 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" />
+                   <div className="flex items-center bg-slate-900 px-2 rounded border border-slate-800">
+                      <input name="light_on" type="checkbox" defaultChecked className="w-3 h-3" />
+                      <Lightbulb size={12} className="ml-1 text-slate-500" />
+                   </div>
                  </div>
                  <div className="flex space-x-2">
                    <input name="start" type="time" className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800" required />

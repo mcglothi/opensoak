@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..db.session import SessionLocal
-from ..db.models import SystemState
+from ..db.models import SystemState, UsageLog
 from ..services.engine import engine as hottub_engine
 
 router = APIRouter()
@@ -39,45 +39,30 @@ def update_control(update: ControlUpdate, db: Session = Depends(get_db)):
     return state
 
 @router.post("/reset-faults")
-
-def reset_faults():
-
+def reset_faults(db: Session = Depends(get_db)):
     hottub_engine.reset_faults()
-
+    log = UsageLog(event="System Reset", details="Faults cleared by admin")
+    db.add(log)
+    db.commit()
     return {"status": "faults reset"}
 
-
-
 @router.post("/master-shutdown")
-
 def master_shutdown(db: Session = Depends(get_db)):
-
     state = db.query(SystemState).first()
-
     if state:
-
         state.circ_pump = False
-
         state.heater = False
-
         state.jet_pump = False
-
         state.light = False
-
         state.ozone = False
-
         db.commit()
-
     
-
-    # Force immediate hardware stop via engine
-
     hottub_engine.controller.emergency_shutdown()
-
     hottub_engine.system_locked = True
-
     hottub_engine.safety_status = "STOP: MASTER SHUTDOWN"
-
     
-
+    log = UsageLog(event="Master Shutdown", details="System emergency stop executed by admin")
+    db.add(log)
+    db.commit()
+    
     return {"status": "all systems off and locked"}

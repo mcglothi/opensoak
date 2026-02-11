@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from ..db.session import SessionLocal
-from ..db.models import Schedule, SystemState, Settings
+from ..db.models import Schedule, SystemState, Settings, UsageLog
 from datetime import datetime
 
 class HotTubScheduler:
@@ -40,16 +40,18 @@ class HotTubScheduler:
         if not state or not settings:
             return
 
+        event_details = f"Schedule: {sched.name}"
         if sched.type == "soak":
-            # Soak: Set heat to target, turn on jets and lights
             state.heater = True
             settings.set_point = sched.target_temp
             state.jet_pump = True
-            state.light = True
+            state.light = getattr(sched, 'light_on', True)
+            event_details += f" (Temp: {sched.target_temp}F, Light: {'On' if state.light else 'Off'})"
         elif sched.type == "clean":
-            # Clean: Just run jets
             state.jet_pump = True
             
+        log = UsageLog(event=f"{sched.type.capitalize()} Cycle Started", details=event_details)
+        db.add(log)
         db.commit()
 
     def deactivate_schedule(self, sched, db):
@@ -60,17 +62,17 @@ class HotTubScheduler:
         if not state:
             return
 
-        # Revert to REST state
         if sched.type == "soak":
             if settings:
                 settings.set_point = settings.default_rest_temp
             state.jet_pump = False
             state.light = False
-            # Keep heater ON or OFF? Usually ON to maintain rest temp
             state.heater = True 
         elif sched.type == "clean":
             state.jet_pump = False
             
+        log = UsageLog(event=f"{sched.type.capitalize()} Cycle Ended", details=f"Schedule: {sched.name}")
+        db.add(log)
         db.commit()
 
 scheduler = HotTubScheduler()

@@ -19,6 +19,13 @@ class TemperatureLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     value = Column(Float)
 
+class UsageLog(Base):
+    __tablename__ = "usage_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    event = Column(String) # e.g. "Soak Started", "Heater On", "Fault Detected"
+    details = Column(String, nullable=True)
+
 class Schedule(Base):
     __tablename__ = "schedules"
     id = Column(Integer, primary_key=True, index=True)
@@ -28,6 +35,7 @@ class Schedule(Base):
     end_time = Column(String)   # HH:MM
     days_of_week = Column(String) # "0,1,2,3,4,5,6" (Monday=0)
     target_temp = Column(Float, nullable=True)
+    light_on = Column(Boolean, default=True) # User choice for soak cycles
     active = Column(Boolean, default=True)
 
 class SystemState(Base):
