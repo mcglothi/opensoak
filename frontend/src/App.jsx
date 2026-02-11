@@ -358,46 +358,85 @@ function App() {
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-4 md:space-x-6">
-          {weather && !weather.error && weather.current && (
-            <div className="bg-slate-900 px-4 py-2 md:px-5 md:py-3 rounded-full border border-slate-800 flex items-center space-x-3 md:space-x-4 shadow-lg">
-              {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 24, className: "md:w-7 md:h-7" })}
-                              <div className="flex flex-col leading-tight">
-                              <span className="text-lg md:text-xl font-bold text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
-                              <span className="text-[10px] md:text-xs text-slate-500 uppercase font-bold tracking-wider">{weather.city || "Unknown"}</span>
-                            </div>
-                          </div>
-                        )}
-              
-                        {/* Temporary Role Switcher */}
-                        <select 
-                          value={role} 
-                          onChange={(e) => setRole(e.target.value)}
-                          className="bg-slate-900 text-sm md:text-base text-slate-400 border border-slate-800 rounded-lg px-2 py-1 md:px-3 md:py-2 outline-none focus:border-blue-500 transition"
-                        >
-              
-            <option value="viewer">Viewer Mode</option>
-            <option value="user">User Mode</option>
-            <option value="admin">Admin Mode</option>
-          </select>
-
-          <div className="bg-slate-900 px-4 py-2 md:px-5 md:py-3 rounded-full border border-slate-800 flex items-center space-x-2 md:space-x-3 shadow-lg">
-            <Clock className="w-4 h-4 md:w-6 md:h-6 text-blue-400" />
-            <span className="text-sm md:text-lg font-bold text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-          </div>
-
-          <button 
-            onClick={() => setShowBugReport(true)}
-            className="p-3 bg-slate-900 rounded-full border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500 transition-all shadow-lg group relative"
-            title="Report a Bug"
-          >
-            <HelpCircle className="w-6 h-6" />
-            <div className="absolute top-full mt-2 right-0 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 w-24 z-50">
-              Need help or found a bug?
-            </div>
-          </button>
-        </div>
-      </header>
+                <div className="flex flex-wrap items-center gap-4 md:space-x-6">
+        
+                  {weather && !weather.error && weather.current && (
+        
+                    <div className="bg-slate-900 px-5 py-3 rounded-full border border-slate-800 flex items-center space-x-4 shadow-lg transition-transform hover:scale-105">
+        
+                      {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 32 })}
+        
+                      <div className="flex flex-col leading-tight">
+        
+                        <span className="text-xl md:text-2xl font-black text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
+        
+                        <span className="text-[10px] md:text-xs text-slate-500 uppercase font-black tracking-widest">{weather.city || "Unknown"}</span>
+        
+                      </div>
+        
+                    </div>
+        
+                  )}
+        
+        
+        
+                  {/* Temporary Role Switcher */}
+        
+                  <select 
+        
+                    value={role} 
+        
+                    onChange={(e) => setRole(e.target.value)}
+        
+                    className="bg-slate-900 text-sm md:text-base text-slate-400 border border-slate-800 rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition font-bold"
+        
+                  >
+        
+                    <option value="viewer">Viewer Mode</option>
+        
+                    <option value="user">User Mode</option>
+        
+                    <option value="admin">Admin Mode</option>
+        
+                  </select>
+        
+        
+        
+                  <div className="bg-slate-900 px-5 py-3 rounded-full border border-slate-800 flex items-center space-x-3 shadow-lg">
+        
+                    <Clock className="w-6 h-6 text-blue-400" />
+        
+                    <span className="text-lg md:text-xl font-black text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        
+                  </div>
+        
+        
+        
+                  <button 
+        
+                    onClick={() => setShowBugReport(true)}
+        
+                    className="p-3 bg-slate-900 rounded-full border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500 transition-all shadow-lg group relative"
+        
+                    title="Report a Bug"
+        
+                  >
+        
+                    <HelpCircle className="w-7 h-7" />
+        
+                    <div className="absolute top-full mt-2 right-0 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-24 z-50 text-center shadow-2xl">
+        
+                      Support
+        
+                    </div>
+        
+                  </button>
+        
+                </div>
+        
+              </header>
+        
+        
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -429,8 +468,8 @@ function App() {
             
             <div className="mt-8 flex flex-wrap items-center gap-4 md:gap-0 md:space-x-4">
               <div className="flex flex-col group relative">
-                <span className="text-slate-500 text-xs uppercase font-bold tracking-tight">Target Temp</span>
-                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 w-32 z-50">
+                <span className="text-slate-500 text-xs uppercase font-black tracking-widest">Target Temp</span>
+                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-48 z-50 shadow-2xl">
                   Temperature the tub will maintain while in use.
                 </div>
                 <div className="flex items-center space-x-4">
@@ -463,47 +502,50 @@ function App() {
                         }
                         setIsEditingTemp(false);
                       }}
-                      className="bg-slate-950 border border-slate-800 text-2xl font-bold text-blue-400 w-24 px-2 py-1 rounded outline-none focus:border-blue-500 transition"
+                      className="bg-slate-950 border border-slate-800 text-3xl font-black text-blue-400 w-28 px-2 py-1 rounded outline-none focus:border-blue-500 transition"
                     />
                   ) : (
-                    <span className="text-2xl font-bold text-blue-400">{settings?.set_point}°F</span>
+                    <span className="text-3xl font-black text-blue-400">{settings?.set_point}°F</span>
                   )}
                   {role !== 'viewer' && (
                     <div className="flex space-x-1">
-                      <button onClick={() => updateSetPoint(0.5)} title="Increase Target Temp" className="p-1 hover:bg-slate-800 rounded transition"><ChevronUp /></button>
-                      <button onClick={() => updateSetPoint(-0.5)} title="Decrease Target Temp" className="p-1 hover:bg-slate-800 rounded transition"><ChevronDown /></button>
+                      <button onClick={() => updateSetPoint(0.5)} title="Increase Target Temp" className="p-1 hover:bg-slate-800 rounded transition scale-110"><ChevronUp /></button>
+                      <button onClick={() => updateSetPoint(-0.5)} title="Decrease Target Temp" className="p-1 hover:bg-slate-800 rounded transition scale-110"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="h-10 w-px bg-slate-800 mx-4"></div>
-              <div className="flex flex-col">
-                <span className="text-slate-500 text-xs uppercase font-bold tracking-tight">Rest Temp</span>
+              <div className="h-10 w-px bg-slate-800 mx-4 hidden md:block"></div>
+              <div className="flex flex-col group relative">
+                <span className="text-slate-500 text-xs uppercase font-black tracking-widest">Rest Temp</span>
+                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-48 z-50 shadow-2xl">
+                  Temperature the tub maintains when not in use.
+                </div>
                 <div className="flex items-center space-x-4">
-                  <span className="text-lg font-bold text-slate-400">{settings?.default_rest_temp}°F</span>
+                  <span className="text-2xl font-bold text-slate-400">{settings?.default_rest_temp}°F</span>
                   {role === 'admin' && (
                     <div className="flex space-x-1">
-                      <button onClick={() => updateRestTemp(0.5)} title="Increase Rest Temp" className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronUp /></button>
-                      <button onClick={() => updateRestTemp(-0.5)} title="Decrease Rest Temp" className="p-1 hover:bg-slate-800 rounded transition scale-75"><ChevronDown /></button>
+                      <button onClick={() => updateRestTemp(0.5)} title="Increase Rest Temp" className="p-1 hover:bg-slate-800 rounded transition scale-90"><ChevronUp /></button>
+                      <button onClick={() => updateRestTemp(-0.5)} title="Decrease Rest Temp" className="p-1 hover:bg-slate-800 rounded transition scale-90"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="h-10 w-px bg-slate-800 mx-4"></div>
+              <div className="h-10 w-px bg-slate-800 mx-4 hidden md:block"></div>
               <div className="flex flex-col">
-                <span className="text-slate-500 text-xs uppercase font-bold tracking-tight">Status</span>
-                <div className="flex items-center space-x-2">
-                  <span className={`text-lg font-semibold ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>
+                <span className="text-slate-500 text-xs uppercase font-black tracking-widest">Status</span>
+                <div className="flex items-center space-x-3">
+                  <span className={`text-xl font-bold ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>
                     {isHeaterOn ? 'Heating...' : 'Ready'}
                   </span>
                   {status?.desired_state?.manual_soak_active && (
                     <button 
                       onClick={cancelSoak} 
-                      className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold uppercase px-2 py-1 rounded-md transition shadow-lg shadow-red-500/20"
+                      className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase px-3 py-1.5 rounded-xl transition shadow-lg shadow-red-500/20"
                       title="End current session and return to rest temperature"
                     >
-                      <Zap size={10} className="fill-current" />
-                      <span>Stop Session</span>
+                      <Zap size={12} className="fill-current" />
+                      <span>Stop</span>
                     </button>
                   )}
                 </div>
@@ -516,32 +558,34 @@ function App() {
 
             {/* Quick Soak Controls */}
             {role !== 'viewer' && !status?.desired_state?.manual_soak_active && (
-              <div className="mt-8 p-4 bg-slate-950/50 rounded-2xl border border-slate-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between group relative gap-4">
-                <div className="absolute -top-8 left-0 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50">
-                  Start an immediate heating session. Jets and lights can be toggled manually.
+              <div className="mt-8 p-6 bg-slate-950/50 rounded-3xl border border-slate-800/50 flex flex-col sm:flex-row items-start sm:items-center justify-between group relative gap-6">
+                <div className="absolute -top-8 left-0 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
+                  Start an immediate heating session.
                 </div>
                 <div className="flex items-center space-x-4">
-                  <Zap className={`text-orange-400 w-5 h-5 ${isHeaterOn ? 'animate-pulse' : ''}`} />
+                  <div className={`p-3 rounded-2xl bg-orange-500/10 ${isHeaterOn ? 'animate-pulse' : ''}`}>
+                    <Zap className="text-orange-400 w-6 h-6" />
+                  </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-300 uppercase tracking-tight">Soak Now!</h3>
-                    <p className="text-xs text-slate-500">Override thermostat</p>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tighter">Soak Now!</h3>
+                    <p className="text-xs text-slate-500 font-medium">Temporary target override</p>
                   </div>
                 </div>
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
                   startSoak(formData.get('temp'), formData.get('duration'));
-                }} className="flex items-center space-x-2 w-full sm:w-auto">
+                }} className="flex items-center space-x-4 w-full sm:w-auto">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold ml-1">Temp</span>
-                    <input name="temp" type="number" step="0.5" defaultValue={settings?.default_soak_temp || 104} className="w-14 bg-slate-900 border border-slate-800 rounded text-xs p-1 text-orange-400 font-bold outline-none focus:border-orange-500" />
+                    <span className="text-[10px] text-slate-500 uppercase font-black ml-1">Temp</span>
+                    <input name="temp" type="number" step="0.5" defaultValue={settings?.default_soak_temp || 104} className="w-16 bg-slate-900 border border-slate-800 rounded-xl text-sm p-2 text-orange-400 font-black outline-none focus:border-orange-500 transition shadow-inner" />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-slate-500 uppercase font-bold ml-1">Min</span>
-                    <input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-14 bg-slate-900 border border-slate-800 rounded text-xs p-1 text-slate-300 outline-none focus:border-slate-700" />
+                    <span className="text-[10px] text-slate-500 uppercase font-black ml-1">Min</span>
+                    <input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-16 bg-slate-900 border border-slate-800 rounded-xl text-sm p-2 text-slate-300 font-black outline-none focus:border-slate-700 transition shadow-inner" />
                   </div>
-                  <button type="submit" className="flex-1 sm:flex-none bg-orange-600 hover:bg-orange-700 text-xs font-bold uppercase px-4 py-2 rounded-xl transition-all shadow-lg shadow-orange-500/20">
-                    Soak!
+                  <button type="submit" className="flex-1 sm:flex-none h-12 bg-orange-600 hover:bg-orange-700 text-white text-xs font-black uppercase px-8 rounded-2xl transition-all shadow-lg shadow-orange-500/30 hover:scale-105 active:scale-95">
+                    Start Soak!
                   </button>
                 </form>
               </div>
@@ -593,19 +637,19 @@ function App() {
           {/* Weekly Forecast */}
           {weather && weather.daily && (
             <div className="mt-8 pt-8 border-t border-slate-800">
-              <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">7-Day Forecast</h3>
-              <div className="flex lg:grid lg:grid-cols-7 gap-3 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 custom-scrollbar">
+              <h3 className="text-slate-500 text-sm font-black uppercase mb-6 tracking-widest">7-Day Forecast</h3>
+              <div className="flex lg:grid lg:grid-cols-7 gap-4 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 custom-scrollbar">
                 {weather.daily.time.slice(0, 7).map((date, idx) => (
-                  <div key={date} className="flex-shrink-0 w-24 lg:w-auto flex flex-col items-center p-3 rounded-2xl bg-slate-950 border border-slate-800/50 shadow-sm transition-transform hover:scale-105">
-                    <span className="text-[10px] text-slate-400 uppercase font-black mb-3">
+                  <div key={date} className="flex-shrink-0 w-28 lg:w-auto flex flex-col items-center p-4 rounded-3xl bg-slate-950 border border-slate-800/50 shadow-lg transition-all hover:scale-105 hover:border-blue-500/30">
+                    <span className="text-xs text-slate-400 uppercase font-black mb-4 tracking-tighter">
                       {new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}
                     </span>
-                    <div className="mb-3 text-blue-400">
-                      {React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 28 })}
+                    <div className="mb-4 text-blue-400">
+                      {React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 36 })}
                     </div>
                     <div className="flex flex-col items-center">
-                      <span className="text-sm font-bold text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span>
-                      <span className="text-[10px] text-slate-500 font-medium">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span>
+                      <span className="text-lg font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span>
+                      <span className="text-xs text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span>
                     </div>
                   </div>
                 ))}
@@ -616,8 +660,8 @@ function App() {
           {/* Hourly Forecast */}
           {weather && weather.hourly && (
             <div className="mt-8 pt-8 border-t border-slate-800">
-              <h3 className="text-slate-500 text-xs font-bold uppercase mb-4">Hourly Forecast (Next 12h)</h3>
-              <div className="flex space-x-3 overflow-x-auto pb-4 custom-scrollbar">
+              <h3 className="text-slate-500 text-sm font-black uppercase mb-6 tracking-widest">Hourly Forecast (Next 12h)</h3>
+              <div className="flex space-x-4 overflow-x-auto pb-4 custom-scrollbar">
                 {(() => {
                   const now = new Date();
                   const currentHourIndex = weather.hourly.time.findIndex(t => new Date(t) >= now);
@@ -634,22 +678,22 @@ function App() {
                     const temp = weather.hourly.temperature_2m[actualIdx];
                     
                     return (
-                      <div key={time} className="flex-shrink-0 flex flex-col items-center p-3 w-24 rounded-2xl bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/20 transition-colors">
-                        <span className="text-[10px] text-slate-500 font-bold mb-2">{displayTime}</span>
-                        <span className="text-lg font-bold text-white mb-1">{temp?.toFixed(0)}°</span>
+                      <div key={time} className="flex-shrink-0 flex flex-col items-center p-4 w-28 rounded-3xl bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/20 transition-colors shadow-lg">
+                        <span className="text-xs text-slate-500 font-black mb-3">{displayTime}</span>
+                        <span className="text-xl font-black text-white mb-2">{temp?.toFixed(0)}°</span>
                         
-                        <div className="flex items-center text-[10px] text-blue-400 mb-1 font-bold">
-                          <Umbrella size={10} className="mr-1" />
+                        <div className="flex items-center text-xs text-blue-400 mb-2 font-black">
+                          <Umbrella size={14} className="mr-1" />
                           {rainProb}%
                         </div>
                         
-                        <div className="flex flex-col items-center text-[8px] text-slate-500">
-                          <div className="flex items-center space-x-1 mb-0.5">
-                            <Wind size={10} />
+                        <div className="flex flex-col items-center text-[10px] text-slate-500 font-bold">
+                          <div className="flex items-center space-x-1 mb-1">
+                            <Wind size={12} />
                             <span>{windSpeed?.toFixed(0)} mph</span>
                           </div>
                           <div className="flex items-center space-x-1">
-                            <Navigation size={8} style={{ transform: `rotate(${windDir}deg)` }} className="text-slate-400" />
+                            <Navigation size={10} style={{ transform: `rotate(${windDir}deg)` }} className="text-slate-400" />
                             <span className="uppercase">{getWindDirLabel(windDir)}</span>
                           </div>
                         </div>
@@ -907,32 +951,32 @@ function App() {
           </div>
 
           {role === 'admin' && (
-            <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-               <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center">
-                 <SettingsIcon size={12} className="mr-1" /> System Settings
+            <div className="mt-8 p-6 bg-slate-950 rounded-3xl border border-slate-800 shadow-xl">
+               <h3 className="text-sm font-black text-slate-500 uppercase mb-6 flex items-center tracking-widest">
+                 <SettingsIcon size={16} className="mr-2" /> System Settings
                </h3>
-               <div className="space-y-4">
+               <div className="space-y-6">
                  <div className="group relative">
-                   <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">Weather Location</label>
-                   <div className="flex items-center space-x-2">
-                     <MapPin size={12} className="text-slate-500" />
+                   <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Weather Location</label>
+                   <div className="flex items-center space-x-3 mt-1">
+                     <MapPin size={16} className="text-slate-500" />
                      <input 
                        defaultValue={settings?.location || ''} 
                        onBlur={(e) => updateLocation(e.target.value)}
                        placeholder="Zip / City" 
-                       className="flex-1 bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition"
+                       className="flex-1 bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                      />
                    </div>
-                   <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[8px] text-white p-1 rounded border border-slate-700 z-50">
+                   <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
                      Used to fetch local weather & forecast.
                    </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="group relative">
-                      <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">Rest Temperature</label>
-                      <div className="flex items-center space-x-1">
-                        <Thermometer size={12} className="text-slate-500" />
+                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Rest Temperature</label>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Thermometer size={16} className="text-slate-500" />
                         <input 
                           type="number"
                           step="0.5"
@@ -942,17 +986,17 @@ function App() {
                             const val = parseFloat(e.target.value);
                             if (!isNaN(val)) updateRestTemp(val - settings.default_rest_temp);
                           }}
-                          className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition font-bold text-slate-300"
+                          className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition font-black text-slate-100 shadow-inner"
                         />
                       </div>
-                      <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[8px] text-white p-1 rounded border border-slate-700 z-50">
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
                         Base temperature maintained when tub is idle.
                       </div>
                     </div>
                     <div className="group relative">
-                      <label className="text-[10px] text-slate-500 uppercase font-bold ml-1">Default Soak Duration</label>
-                      <div className="flex items-center space-x-1">
-                        <Clock size={14} className="text-slate-500" />
+                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Default Soak Duration</label>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Clock size={16} className="text-slate-500" />
                         <input 
                           type="number"
                           defaultValue={settings?.default_soak_duration || 60} 
@@ -960,17 +1004,17 @@ function App() {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_duration: val });
                           }}
-                          className="w-full bg-slate-900 text-xs p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition font-bold text-slate-300"
+                          className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition font-black text-slate-100 shadow-inner"
                         />
                       </div>
-                      <div className="absolute left-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[10px] text-white p-1 rounded border border-slate-700 z-50">
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
                         Default time for manual Quick Heat sessions.
                       </div>
                     </div>
                     <div className="group relative">
-                      <label className="text-[10px] text-slate-500 uppercase font-bold ml-1">Default Soak Temp</label>
-                      <div className="flex items-center space-x-1">
-                        <Thermometer size={14} className="text-slate-500" />
+                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Default Soak Temp</label>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Thermometer size={16} className="text-slate-500" />
                         <input 
                           type="number"
                           step="0.5"
@@ -979,54 +1023,53 @@ function App() {
                             const val = parseFloat(e.target.value);
                             if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_temp: val });
                           }}
-                          className="w-full bg-slate-900 text-xs p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition font-bold text-slate-300"
+                          className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition font-black text-slate-100 shadow-inner"
                         />
                       </div>
-                      <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[10px] text-white p-1 rounded border border-slate-700 z-50">
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
                         Initial temperature for new soak sessions.
+                      </div>
+                    </div>
+                    <div className="group relative">
+                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest font-black">Safety High-Limit</label>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <ShieldCheck size={16} className="text-slate-500" />
+                        <input 
+                          type="number"
+                          defaultValue={settings?.max_temp_limit || 110} 
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val)) {
+                              if (val > 110 && !window.confirm("Safety Warning: Setting the high-limit above 110°F is dangerous and could lead to scalding or equipment damage. Are you sure?")) {
+                                e.target.value = settings.max_temp_limit;
+                                return;
+                              }
+                              axios.post(`${API_BASE}/settings/`, { max_temp_limit: val });
+                            }
+                          }}
+                          className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-red-500 transition font-black text-red-400 shadow-inner"
+                        />
+                      </div>
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
+                        Hard safety limit for water temperature. Trigger emergency shutdown if exceeded.
                       </div>
                     </div>
                  </div>
 
-                 <div className="group relative">
-                   <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">Safety High-Limit</label>
-                   <div className="flex items-center space-x-1">
-                     <ShieldCheck size={12} className="text-slate-500" />
-                     <input 
-                       type="number"
-                       defaultValue={settings?.max_temp_limit || 110} 
-                       onBlur={(e) => {
-                         const val = parseFloat(e.target.value);
-                         if (!isNaN(val)) {
-                           if (val > 110 && !window.confirm("Safety Warning: Setting the high-limit above 110°F is dangerous and could lead to scalding or equipment damage. Are you sure?")) {
-                             e.target.value = settings.max_temp_limit;
-                             return;
-                           }
-                           axios.post(`${API_BASE}/settings/`, { max_temp_limit: val });
-                         }
-                       }}
-                       className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-red-500 transition font-bold text-red-400"
-                     />
-                   </div>
-                   <div className="absolute right-0 bottom-full mb-1 hidden group-hover:block bg-slate-800 text-[8px] text-white p-1 rounded border border-slate-700 z-50">
-                     Hard safety limit for water temperature. Trigger emergency shutdown if exceeded.
-                   </div>
-                 </div>
-
-                 <div className="pt-4 border-t border-slate-900">
-                    <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3">Energy & Power Settings</h4>
-                    <div className="space-y-3">
+                 <div className="pt-6 border-t border-slate-900">
+                    <h4 className="text-xs font-black text-slate-500 uppercase mb-4 tracking-widest">Energy & Power Settings</h4>
+                    <div className="space-y-4">
                       <div className="group relative">
-                        <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">Electric Cost ($/kWh)</label>
+                        <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label>
                         <input 
                           type="number"
                           step="0.01"
                           defaultValue={settings?.kwh_cost} 
                           onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) })}
-                          className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition"
+                          className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
                           { label: "Heater Watts", key: "heater_watts" },
                           { label: "Circ Pump Watts", key: "circ_pump_watts" },
@@ -1034,13 +1077,13 @@ function App() {
                           { label: "Light Watts", key: "light_watts" },
                           { label: "Ozone Watts", key: "ozone_watts" }
                         ].map(p => (
-                          <div key={p.key}>
-                            <label className="text-[8px] text-slate-500 uppercase font-bold ml-1">{p.label}</label>
+                          <div key={p.key} className="group relative">
+                            <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter">{p.label}</label>
                             <input 
                               type="number"
                               defaultValue={settings?.[p.key]} 
                               onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.key]: parseFloat(e.target.value) })}
-                              className="w-full bg-slate-900 text-[10px] p-2 rounded outline-none border border-slate-800 focus:border-blue-500 transition"
+                              className="w-full bg-slate-900 text-xs p-2 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                             />
                           </div>
                         ))}
