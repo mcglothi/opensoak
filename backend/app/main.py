@@ -1,5 +1,10 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 from .db.session import init_db
 from .services.engine import engine as hottub_engine
 from .services.scheduler import scheduler as hottub_scheduler
