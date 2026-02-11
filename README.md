@@ -39,6 +39,31 @@ OpenSoak is designed to interface with standard spa equipment using industrial-g
 
 ![Hardware Wiring](docs/hardware.jpg)
 
+### **Pinout Configuration**
+
+| Component | BCM Pin | Physical Pin | Logic |
+| :--- | :---: | :---: | :--- |
+| **Heater** | 4 | 7 | Active Low |
+| **Light** | 5 | 29 | Active Low |
+| **Ozone** | 6 | 31 | Active Low |
+| **Circulation Pump** | 22 | 15 | Active Low |
+| **Jet Pump** | 27 | 13 | Active Low |
+
+### **ADC / Sensor Wiring (MCP3008 SPI)**
+
+| MCP3008 Pin | Pi BCM | Physical Pin | Function |
+| :--- | :---: | :---: | :--- |
+| **VDD / VREF** | 3.3V | 1 / 17 | Power / Reference |
+| **AGND / DGND** | GND | 6 / 9 / 14 | Ground |
+| **CLK** | 11 | 23 | SPI Clock |
+| **DOUT** | 9 | 21 | Master In Slave Out (MISO) |
+| **DIN** | 10 | 19 | Master Out Slave In (MOSI) |
+| **CS / SHDN** | 8 | 24 | Chip Select (CE0) |
+| **CH0** | - | - | Water Temp Sensor |
+| **CH1** | - | - | Hi-Limit Sensor |
+
+> **Thermistor Note:** Sensors are wired as a voltage divider with a **10k Ohm series resistor** to ground.
+
 ## 📦 Installation
 
 ### 1. Clone the repository
