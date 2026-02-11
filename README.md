@@ -18,23 +18,24 @@ OpenSoak is a modern, open-source hot tub control system designed to run on a Ra
 
 ## 🚀 Features
 
--   **Safety-First Design:** 
-    -   **Heater Interlock:** Hardware and software-level logic ensures the heater only runs when the circulation pump is active and flow is detected.
-    -   **High-Temp Cutoff:** Automatic emergency shutdown if the water exceeds the user-configurable high limit.
--   **Modern Web UI:** A responsive, dark-mode dashboard built with React and Tailwind CSS.
--   **Intelligent Heating:** Hysteresis-based temperature control with "Rest" and "Soak" temperature modes.
--   **Energy Tracking:** Real-time runtime monitoring and cost estimation for all system components.
--   **Native Scheduler:** Set heating, cleaning, and ozone windows directly in the app.
--   **Hardware Simulation:** Test the entire logic engine on any computer without needing a Raspberry Pi.
+-   **Safety-First Engineering:** 
+    -   **Heater Interlock:** Intelligent software and hardware logic prevents the heater from engaging without verified water flow and an active circulation pump.
+    -   **Configurable High-Limit:** Automatic emergency shutdown triggers if the water temperature exceeds your defined safety threshold.
+-   **Modern Dashboard:** A responsive, dark-mode web interface built with React, Tailwind CSS, and real-time animations.
+-   **Precision Control:** Hysteresis-based heating with dedicated "Rest" and "Soak" temperature modes for maximum efficiency.
+-   **Energy Monitoring:** Comprehensive real-time tracking of component runtimes and estimated operating costs.
+-   **Automated Scheduling:** Intuitive in-app scheduler for heating, filtration (clean), and ozone purification cycles.
+-   **Hardware Emulation:** Full simulation mode allows for logic testing and UI development on any PC without physical hardware.
 
 ## 🛠 Hardware Architecture
 
-OpenSoak is designed to interface with standard spa equipment using an 8-channel relay board and high-precision thermistors.
+OpenSoak is designed to interface with standard spa equipment using industrial-grade components and a modular wiring approach.
 
--   **Raspberry Pi:** Core compute module (GPIO control + API).
--   **8-Channel Relay Board:** Controls high-voltage loads (Heater, Pumps, Lights, Ozone).
--   **MCP3008 ADC:** Interfaces with 10k thermistors for water and hi-limit temperature monitoring.
--   **Physical Interlocks:** (Recommended) A flow switch should be wired to ensure the heater cannot activate without water movement.
+-   **Raspberry Pi:** Serves as the central compute module, hosting the FastAPI backend and React frontend.
+-   **8-Channel Relay Board:** Provides isolated control over high-voltage loads including heaters, pumps, lights, and ozone generators.
+-   **MCP3008 ADC:** Enables high-precision analog-to-digital conversion for temperature monitoring.
+-   **10k Thermistors:** Reliable temperature sensing using Steinhart-Hart coefficients for laboratory-grade accuracy.
+-   **Physical Safety:** Support for hardware-level flow switches to ensure fail-safe operation.
 
 ![Hardware Wiring](docs/hardware.jpg)
 
@@ -67,4 +68,4 @@ Access the dashboard at `http://<your-pi-ip>:5173` and the API docs at `http://<
 
 ## 📄 License
 
-MIT
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
