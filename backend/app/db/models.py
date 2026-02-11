@@ -13,6 +13,7 @@ class Settings(Base):
     hysteresis_lower = Column(Float, default=1.0)
     max_temp_limit = Column(Float, default=110.0)
     location = Column(String, default="90210") # Zip code for weather
+    default_soak_duration = Column(Integer, default=60)
 
 class TemperatureLog(Base):
     __tablename__ = "temperature_logs"
@@ -48,3 +49,7 @@ class SystemState(Base):
     jet_pump = Column(Boolean, default=False)
     light = Column(Boolean, default=False)
     ozone = Column(Boolean, default=False)
+    
+    # Manual Soak
+    manual_soak_active = Column(Boolean, default=False)
+    manual_soak_expires = Column(DateTime(timezone=True), nullable=True)

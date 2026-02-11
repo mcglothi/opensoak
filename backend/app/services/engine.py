@@ -3,7 +3,7 @@ import time
 import os
 from datetime import datetime
 from ..db.session import SessionLocal
-from ..db.models import Settings, TemperatureLog, SystemState
+from ..db.models import Settings, TemperatureLog, SystemState, UsageLog
 
 class HotTubEngine:
     def __init__(self):
@@ -74,6 +74,19 @@ class HotTubEngine:
             self.current_temp = self.controller.get_temperature(0)
             self.hi_limit_temp = self.controller.get_temperature(1)
             
+            # --- MANUAL SOAK EXPIRATION ---
+            if state.manual_soak_active and state.manual_soak_expires:
+                if datetime.now().replace(tzinfo=state.manual_soak_expires.tzinfo) > state.manual_soak_expires:
+                    state.manual_soak_active = False
+                    state.manual_soak_expires = None
+                    # state.jet_pump = False # Preserving user state
+                    # state.light = False    # Preserving user state
+                    settings.set_point = settings.default_rest_temp
+                    
+                    log = UsageLog(event="Manual Soak Ended", details="Duration expired, reverting to rest temperature")
+                    db.add(log)
+                    db.commit()
+
             # --- HI-LIMIT FAULT CHECK ---
             if self.current_temp >= 110.0 or self.hi_limit_temp >= 110.0:
                 self.safety_status = "CRITICAL: HI-LIMIT FAULT"
@@ -112,7 +125,8 @@ class HotTubEngine:
             is_flow_ok = self.controller.is_flow_detected()
 
             # Heater runs if Master toggle is ON AND safety conditions met
-            if state.heater and is_circ_actually_on and is_flow_ok:
+            # And ONLY if circ pump is desired to be on
+            if state.heater and state.circ_pump and is_circ_actually_on and is_flow_ok:
                 target = settings.set_point
                 upper = target + settings.hysteresis_upper
                 lower = target - settings.hysteresis_lower
@@ -125,8 +139,8 @@ class HotTubEngine:
                 self.controller.set_relay(self.controller.HEATER, False)
 
             # --- OZONE & OTHER ---
-            # Ozone runs with Circ Pump by default unless locked
-            if is_circ_actually_on and is_flow_ok and not self.system_locked:
+            # Ozone runs if Master toggle is ON AND safety conditions met
+            if state.ozone and state.circ_pump and is_circ_actually_on and is_flow_ok and not self.system_locked:
                 self.controller.set_relay(self.controller.OZONE, True)
             else:
                 self.controller.set_relay(self.controller.OZONE, False)

@@ -2,25 +2,28 @@
 
 OpenSoak is a modern, open-source hot tub control system designed to run on a Raspberry Pi. It replaces traditional hardware controllers with a safety-first Python engine, a robust FastAPI REST API, and a beautiful React-based web dashboard.
 
-![OpenSoak Dashboard](https://raw.githubusercontent.com/mcglothi/opensoak/main/frontend/public/vite.svg) *(Replace with actual screenshot later)*
+![OpenSoak Dashboard](Screenshot.png)
 
 ## 🚀 Features
 
 -   **Safety-First Design:** 
-    -   **Heater Interlock:** Hardware-level logic ensures the heater only runs when the circulation pump is active.
-    -   **High-Temp Cutoff:** Automatic emergency shutdown if the water exceeds safe limits.
+    -   **Heater Interlock:** Hardware and software-level logic ensures the heater only runs when the circulation pump is active and flow is detected.
+    -   **High-Temp Cutoff:** Automatic emergency shutdown if the water exceeds 110°F.
 -   **Modern Web UI:** A responsive, dark-mode dashboard built with React and Tailwind CSS.
--   **REST API:** Control your tub from anywhere—perfect for mobile apps or Home Assistant integration.
--   **Native Scheduler:** Set heating windows and target temperatures directly in the app (no more messy cron jobs).
--   **Historical Logging:** Track and visualize temperature trends over time.
+-   **Intelligent Heating:** Hysteresis-based temperature control with "Rest" and "Soak" temperature modes.
+-   **Native Scheduler:** Set heating, cleaning, and ozone windows directly in the app.
+-   **Hardware Simulation:** Test the entire logic engine on any computer without needing a Raspberry Pi.
 
-## 🛠 Hardware Support
+## 🛠 Hardware Architecture
 
-Built for:
--   **Raspberry Pi** (Any model with GPIO)
--   **8-Channel Relay Board** (Active Low)
--   **MCP3008 ADC** for high-precision temperature sensing via thermistors.
--   **10k Thermistor** using Steinhart-Hart coefficients for accuracy.
+OpenSoak is designed to interface with standard spa equipment using an 8-channel relay board and high-precision thermistors.
+
+-   **Raspberry Pi:** Core compute module (GPIO control + API).
+-   **8-Channel Relay Board:** Controls high-voltage loads (Heater, Pumps, Lights, Ozone).
+-   **MCP3008 ADC:** Interfaces with 10k thermistors for water and hi-limit temperature monitoring.
+-   **Physical Interlocks:** (Recommended) A flow switch should be wired to ensure the heater cannot activate without water movement.
+
+![Hardware Wiring](docs/hardware.jpg)
 
 ## 📦 Installation
 

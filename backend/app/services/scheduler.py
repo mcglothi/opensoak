@@ -51,6 +51,8 @@ class HotTubScheduler:
             event_details += f" (Temp: {sched.target_temp}F, Light: {'On' if state.light else 'Off'})"
         elif sched.type == "clean":
             state.jet_pump = True
+        elif sched.type == "ozone":
+            state.ozone = True
             
         log = UsageLog(event=f"{sched.type.capitalize()} Cycle Started", details=event_details)
         db.add(log)
@@ -72,6 +74,8 @@ class HotTubScheduler:
             state.heater = True 
         elif sched.type == "clean":
             state.jet_pump = False
+        elif sched.type == "ozone":
+            state.ozone = False
             
         log = UsageLog(event=f"{sched.type.capitalize()} Cycle Ended", details=f"Schedule: {sched.name}")
         db.add(log)

@@ -13,6 +13,7 @@ class SettingsUpdate(BaseModel):
     hysteresis_lower: float = None
     max_temp_limit: float = None
     location: str = None
+    default_soak_duration: int = None
 
 def get_db():
     db = SessionLocal()
@@ -50,6 +51,9 @@ def update_settings(update: SettingsUpdate, db: Session = Depends(get_db)):
     
     if update.location is not None:
         settings.location = update.location
+    
+    if update.default_soak_duration is not None:
+        settings.default_soak_duration = update.default_soak_duration
         
     db.commit()
     db.refresh(settings)

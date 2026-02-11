@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from ..db.session import SessionLocal
 from ..db.models import SystemState, UsageLog
 from ..services.engine import engine as hottub_engine
+
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -13,6 +15,10 @@ class ControlUpdate(BaseModel):
     jet_pump: bool = None
     light: bool = None
     ozone: bool = None
+
+class SoakStart(BaseModel):
+    target_temp: float
+    duration_minutes: int = 60
 
 def get_db():
     db = SessionLocal()
@@ -37,6 +43,53 @@ def update_control(update: ControlUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(state)
     return state
+
+@router.post("/start-soak")
+def start_soak(soak: SoakStart, db: Session = Depends(get_db)):
+    state = db.query(SystemState).first()
+    settings = db.query(Settings).first()
+    
+    if not state or not settings:
+        raise HTTPException(status_code=500, detail="System configuration missing")
+
+    duration = soak.duration_minutes if soak.duration_minutes else settings.default_soak_duration
+
+    # Update state
+    state.manual_soak_active = True
+    state.manual_soak_expires = datetime.now() + timedelta(minutes=duration)
+    # state.jet_pump = True  # Removed per user request
+    # state.light = True     # Removed per user request
+    state.heater = True
+    
+    # Update target temp
+    settings.set_point = soak.target_temp
+    
+    log = UsageLog(event="Manual Soak Started", details=f"Target: {soak.target_temp}F, Duration: {duration}m")
+    db.add(log)
+    db.commit()
+    
+    return {"status": "soak started", "expires": state.manual_soak_expires}
+
+@router.post("/cancel-soak")
+def cancel_soak(db: Session = Depends(get_db)):
+    state = db.query(SystemState).first()
+    settings = db.query(Settings).first()
+    
+    if not state or not settings:
+        raise HTTPException(status_code=500, detail="System configuration missing")
+
+    state.manual_soak_active = False
+    state.manual_soak_expires = None
+    state.jet_pump = False
+    state.light = False
+    
+    settings.set_point = settings.default_rest_temp
+    
+    log = UsageLog(event="Manual Soak Cancelled", details="User terminated soak session")
+    db.add(log)
+    db.commit()
+    
+    return {"status": "soak cancelled", "reverted_to": settings.default_rest_temp}
 
 @router.post("/reset-faults")
 def reset_faults(db: Session = Depends(get_db)):
