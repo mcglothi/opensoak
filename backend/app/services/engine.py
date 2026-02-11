@@ -140,6 +140,11 @@ class HotTubEngine:
             # Default to ON unless system is locked (Shutdown or Fault)
             needs_circ = not self.system_locked
             
+            # Synchronize desired state in DB for the always-on component
+            if needs_circ and not state.circ_pump:
+                state.circ_pump = True
+                db.commit()
+
             is_circ_currently_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
             
             if needs_circ:

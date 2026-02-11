@@ -62,7 +62,7 @@ class SystemState(Base):
     """Stores the desired state (e.g. if the user turned the light on)"""
     __tablename__ = "system_state"
     id = Column(Integer, primary_key=True, index=True)
-    circ_pump = Column(Boolean, default=False)
+    circ_pump = Column(Boolean, default=True)
     heater = Column(Boolean, default=False)
     jet_pump = Column(Boolean, default=False)
     light = Column(Boolean, default=False)

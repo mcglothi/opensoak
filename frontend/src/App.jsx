@@ -734,7 +734,8 @@ function App() {
                 <ControlToggle 
                   label="Jets" 
                   icon={<Wind />} 
-                  active={status?.desired_state?.jet_pump} 
+                  active={status?.actual_relay_state?.jet_pump} 
+                  loading={status?.desired_state?.jet_pump !== status?.actual_relay_state?.jet_pump}
                   onToggle={(v) => toggleControl('jet_pump', v)}
                   color="blue"
                   tooltip="Toggle high-power jet pump for hydrotherapy."
@@ -742,7 +743,8 @@ function App() {
                 <ControlToggle 
                   label="Light" 
                   icon={<Lightbulb />} 
-                  active={status?.desired_state?.light} 
+                  active={status?.actual_relay_state?.light} 
+                  loading={status?.desired_state?.light !== status?.actual_relay_state?.light}
                   onToggle={(v) => toggleControl('light', v)}
                   color="yellow"
                   tooltip="Toggle underwater LED lighting."
@@ -756,7 +758,8 @@ function App() {
                         <ControlToggle 
                           label="Circ Pump" 
                           icon={<Droplets />} 
-                          active={status?.desired_state?.circ_pump} 
+                          active={status?.actual_relay_state?.circ_pump} 
+                          loading={status?.desired_state?.circ_pump !== status?.actual_relay_state?.circ_pump}
                           onToggle={(v) => toggleControl('circ_pump', v)}
                           color="emerald"
                           tooltip="Toggle water circulation and filtration."
@@ -764,7 +767,8 @@ function App() {
                         <ControlToggle 
                           label="Ozone" 
                           icon={<Zap />} 
-                          active={status?.desired_state?.ozone} 
+                          active={status?.actual_relay_state?.ozone} 
+                          loading={status?.desired_state?.ozone !== status?.actual_relay_state?.ozone}
                           onToggle={(v) => toggleControl('ozone', v)}
                           color="blue"
                           tooltip="Toggle ozone generator for water purification."
@@ -1225,7 +1229,7 @@ function StatusIndicator({ label, active, color, isLarge, icon }) {
   );
 }
 
-function ControlToggle({ label, icon, active, onToggle, color, disabled, tooltip }) {
+function ControlToggle({ label, icon, active, onToggle, color, disabled, tooltip, loading }) {
   const colors = {
     orange: "bg-orange-500/20 text-orange-400 border-orange-500/50 bg-glow-orange",
     blue: "bg-blue-500/20 text-blue-400 border-blue-500/50 bg-glow-blue",
@@ -1237,23 +1241,26 @@ function ControlToggle({ label, icon, active, onToggle, color, disabled, tooltip
   return (
     <div className="group relative">
       {tooltip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-[8px] text-white p-2 rounded border border-slate-700 w-32 z-50 text-center">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-32 z-50 text-center shadow-2xl">
           {tooltip}
         </div>
       )}
       <button 
         onClick={() => !disabled && onToggle(!active)}
-        disabled={disabled}
-        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${active ? colors[color] : colors.gray}`}
+        disabled={disabled || loading}
+        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${active ? colors[color] : colors.gray} ${loading ? 'animate-pulse-subtle brightness-110' : ''}`}
       >
         <div className="flex items-center">
           <div className={`p-2 rounded-lg transition-all ${active ? 'bg-white/10' : 'bg-slate-900'} ${active && (color === 'blue' ) ? 'animate-wave' : ''} ${active && (color === 'emerald') ? 'animate-pulse' : ''} ${active && (color === 'yellow') ? 'animate-pulse' : ''}`}>
             {React.cloneElement(icon, { size: 20 })}
           </div>
-          <span className="ml-4 font-bold">{label}</span>
+          <div className="flex flex-col items-start ml-4 text-left">
+            <span className="font-bold">{label}</span>
+            {loading && <span className="text-[10px] font-black uppercase tracking-tighter text-blue-400 animate-pulse">Syncing...</span>}
+          </div>
         </div>
         <div className={`w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}`}>
-          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'}`} />
+          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'} ${loading ? 'opacity-50 scale-75' : ''}`} />
         </div>
       </button>
     </div>

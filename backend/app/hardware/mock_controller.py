@@ -13,6 +13,7 @@ class MockHotTubController:
     def __init__(self):
         self.pins = [self.CIRC_PUMP, self.HEATER, self.JET_PUMP, self.LIGHT, self.OZONE]
         self.state = {pin: False for pin in self.pins}
+        self.state[self.CIRC_PUMP] = True # Default to ON
         self.simulated_temp = 100.0 # Start at 100 degrees
         self.flow_detected = True
         print("🔧 Running in HARDWARE SIMULATION MODE")
