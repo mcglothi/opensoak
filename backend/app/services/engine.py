@@ -140,10 +140,11 @@ class HotTubEngine:
             # Default to ON unless system is locked (Shutdown or Fault)
             needs_circ = not self.system_locked
             
-            # Synchronize desired state in DB for the always-on component
+            # Forced sync of DB state for mandatory always-on components
             if needs_circ and not state.circ_pump:
                 state.circ_pump = True
                 db.commit()
+                db.refresh(state)
 
             is_circ_currently_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
             
@@ -151,7 +152,7 @@ class HotTubEngine:
                 if not is_circ_currently_on:
                     self.controller.set_relay(self.controller.CIRC_PUMP, True)
                     self.circ_start_time = time.time()
-                    return # Wait for next tick
+                    is_circ_currently_on = True # Allow rest of tick to proceed with virtual confirmation
                 
                 # Logic Diagram: Wait 5 seconds before checking flow
                 if time.time() - self.circ_start_time > 5:
@@ -166,14 +167,17 @@ class HotTubEngine:
                         self.flow_error_count = 0 
             else:
                 self.controller.set_relay(self.controller.CIRC_PUMP, False)
+                if state.circ_pump:
+                    state.circ_pump = False
+                    db.commit()
 
             # --- HEATER LOGIC (Hysteresis) ---
             is_circ_actually_on = self.controller.get_relay_state(self.controller.CIRC_PUMP)
             is_flow_ok = self.controller.is_flow_detected()
 
             # Heater runs if Master toggle is ON AND safety conditions met
-            # And ONLY if circ pump is desired to be on
-            if state.heater and state.circ_pump and is_circ_actually_on and is_flow_ok:
+            # And ONLY if circ pump is actually on and flowing
+            if state.heater and is_circ_actually_on and is_flow_ok:
                 target = settings.set_point
                 upper = target + settings.hysteresis_upper
                 lower = target - settings.hysteresis_lower
@@ -187,7 +191,7 @@ class HotTubEngine:
 
             # --- OZONE & OTHER ---
             # Ozone runs if Master toggle is ON AND safety conditions met
-            if state.ozone and state.circ_pump and is_circ_actually_on and is_flow_ok and not self.system_locked:
+            if state.ozone and is_circ_actually_on and is_flow_ok and not self.system_locked:
                 self.controller.set_relay(self.controller.OZONE, True)
             else:
                 self.controller.set_relay(self.controller.OZONE, False)

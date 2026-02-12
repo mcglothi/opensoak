@@ -24,7 +24,8 @@ def get_status(db: Session = Depends(get_db)):
         "current_temp": current_temp,
         "desired_state": state,
         "actual_relay_state": relay_states,
-        "safety_status": hottub_engine.safety_status
+        "safety_status": hottub_engine.safety_status,
+        "system_locked": hottub_engine.system_locked
     }
 
 @router.get("/weather")

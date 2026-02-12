@@ -6,7 +6,7 @@ from github import Github, Auth
 import google.generativeai as genai
 
 # Configuration
-GEMINI_MODEL = "gemini-1.5-pro" # High-reasoning model
+GEMINI_MODEL = "models/gemini-pro-latest" # Use Pro for deep reasoning
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -30,13 +30,17 @@ def main():
         print(f"- {m}")
 
     target_model = GEMINI_MODEL
-    if f"models/{GEMINI_MODEL}" not in available_models and GEMINI_MODEL not in available_models:
+    if target_model not in available_models:
         print(f"Warning: {GEMINI_MODEL} not found. Selecting best available model...")
-        # Prefer Pro, then Flash, then anything
-        pros = [m for m in available_models if "pro" in m.lower()]
-        flashes = [m for m in available_models if "flash" in m.lower()]
+        # Prefer 1.5 Pro, then Pro Latest, then 1.5 Flash
+        pros = [m for m in available_models if "1.5-pro" in m.lower()]
+        pro_latests = [m for m in available_models if "pro-latest" in m.lower()]
+        flashes = [m for m in available_models if "1.5-flash" in m.lower()]
+        
         if pros:
             target_model = pros[0]
+        elif pro_latests:
+            target_model = pro_latests[0]
         elif flashes:
             target_model = flashes[0]
         else:

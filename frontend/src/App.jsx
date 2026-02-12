@@ -369,55 +369,57 @@ function App() {
         
                 <div className="flex flex-wrap items-center gap-4 md:space-x-6">
         
-                  {weather && !weather.error && weather.current && (
+                            {weather && !weather.error && weather.current && (
         
-                    <div className="bg-slate-900 px-5 py-3 rounded-full border border-slate-800 flex items-center space-x-4 shadow-lg transition-transform hover:scale-105">
+                              <div className="bg-slate-900 px-6 py-4 rounded-full border border-slate-800 flex items-center space-x-5 shadow-lg transition-transform hover:scale-105">
         
-                      {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 32 })}
+                                {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 40 })}
         
-                      <div className="flex flex-col leading-tight">
+                                <div className="flex flex-col leading-tight">
         
-                        <span className="text-xl md:text-2xl font-black text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
+                                  <span className="text-2xl md:text-3xl font-black text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
         
-                        <span className="text-[10px] md:text-xs text-slate-500 uppercase font-black tracking-widest">{weather.city || "Unknown"}</span>
+                                  <span className="text-xs md:text-sm text-slate-500 uppercase font-black tracking-[0.1em]">{weather.city || "Unknown"}</span>
         
-                      </div>
+                                </div>
         
-                    </div>
+                              </div>
         
-                  )}
+                            )}
         
+                  
         
+                            {/* Temporary Role Switcher */}
         
-                  {/* Temporary Role Switcher */}
+                            <select 
         
-                  <select 
+                              value={role} 
         
-                    value={role} 
+                              onChange={(e) => setRole(e.target.value)}
         
-                    onChange={(e) => setRole(e.target.value)}
+                              className="bg-slate-900 text-base md:text-lg text-slate-400 border border-slate-800 rounded-xl px-4 py-2 outline-none focus:border-blue-500 transition font-black"
         
-                    className="bg-slate-900 text-sm md:text-base text-slate-400 border border-slate-800 rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition font-bold"
+                            >
         
-                  >
+                              <option value="viewer">Viewer Mode</option>
         
-                    <option value="viewer">Viewer Mode</option>
+                              <option value="user">User Mode</option>
         
-                    <option value="user">User Mode</option>
+                              <option value="admin">Admin Mode</option>
         
-                    <option value="admin">Admin Mode</option>
+                            </select>
         
-                  </select>
+                  
         
+                            <div className="bg-slate-900 px-6 py-4 rounded-full border border-slate-800 flex items-center space-x-4 shadow-lg">
         
+                              <Clock className="w-8 h-8 text-blue-400" />
         
-                  <div className="bg-slate-900 px-5 py-3 rounded-full border border-slate-800 flex items-center space-x-3 shadow-lg">
+                              <span className="text-xl md:text-2xl font-black text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         
-                    <Clock className="w-6 h-6 text-blue-400" />
+                            </div>
         
-                    <span className="text-lg md:text-xl font-black text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-        
-                  </div>
+                  
         
         
         
@@ -646,19 +648,19 @@ function App() {
           {/* Weekly Forecast */}
           {weather && weather.daily && (
             <div className="mt-8 pt-8 border-t border-slate-800">
-              <h3 className="text-slate-500 text-sm font-black uppercase mb-6 tracking-widest">7-Day Forecast</h3>
-              <div className="flex lg:grid lg:grid-cols-7 gap-4 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 custom-scrollbar">
+              <h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest">7-Day Forecast</h3>
+              <div className="flex lg:grid lg:grid-cols-7 gap-5 overflow-x-auto lg:overflow-visible pb-6 lg:pb-0 custom-scrollbar">
                 {weather.daily.time.slice(0, 7).map((date, idx) => (
-                  <div key={date} className="flex-shrink-0 w-28 lg:w-auto flex flex-col items-center p-4 rounded-3xl bg-slate-950 border border-slate-800/50 shadow-lg transition-all hover:scale-105 hover:border-blue-500/30">
-                    <span className="text-xs text-slate-400 uppercase font-black mb-4 tracking-tighter">
+                  <div key={date} className="flex-shrink-0 w-32 lg:w-auto flex flex-col items-center p-5 rounded-[2rem] bg-slate-950 border border-slate-800/50 shadow-xl transition-all hover:scale-105 hover:border-blue-500/30 hover:bg-slate-900">
+                    <span className="text-sm text-slate-400 uppercase font-black mb-5 tracking-tighter">
                       {new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}
                     </span>
-                    <div className="mb-4 text-blue-400">
-                      {React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 36 })}
+                    <div className="mb-5 text-blue-400">
+                      {React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 48 })}
                     </div>
                     <div className="flex flex-col items-center">
-                      <span className="text-lg font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span>
-                      <span className="text-xs text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span>
+                      <span className="text-2xl font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span>
+                      <span className="text-sm text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span>
                     </div>
                   </div>
                 ))}
@@ -669,8 +671,8 @@ function App() {
           {/* Hourly Forecast */}
           {weather && weather.hourly && (
             <div className="mt-8 pt-8 border-t border-slate-800">
-              <h3 className="text-slate-500 text-sm font-black uppercase mb-6 tracking-widest">Hourly Forecast (Next 12h)</h3>
-              <div className="flex space-x-4 overflow-x-auto pb-4 custom-scrollbar">
+              <h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest">Hourly Forecast (Next 12h)</h3>
+              <div className="flex space-x-5 overflow-x-auto pb-6 custom-scrollbar">
                 {(() => {
                   const now = new Date();
                   const currentHourIndex = weather.hourly.time.findIndex(t => new Date(t) >= now);
@@ -687,22 +689,22 @@ function App() {
                     const temp = weather.hourly.temperature_2m[actualIdx];
                     
                     return (
-                      <div key={time} className="flex-shrink-0 flex flex-col items-center p-4 w-28 rounded-3xl bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/20 transition-colors shadow-lg">
-                        <span className="text-xs text-slate-500 font-black mb-3">{displayTime}</span>
-                        <span className="text-xl font-black text-white mb-2">{temp?.toFixed(0)}°</span>
+                      <div key={time} className="flex-shrink-0 flex flex-col items-center p-5 w-32 rounded-[2rem] bg-slate-950/50 border border-slate-800/50 hover:bg-slate-800/20 transition-colors shadow-xl">
+                        <span className="text-sm text-slate-500 font-black mb-4">{displayTime}</span>
+                        <span className="text-2xl font-black text-white mb-3">{temp?.toFixed(0)}°</span>
                         
-                        <div className="flex items-center text-xs text-blue-400 mb-2 font-black">
-                          <Umbrella size={14} className="mr-1" />
+                        <div className="flex items-center text-sm text-blue-400 mb-3 font-black">
+                          <Umbrella size={18} className="mr-1.5" />
                           {rainProb}%
                         </div>
                         
-                        <div className="flex flex-col items-center text-[10px] text-slate-500 font-bold">
-                          <div className="flex items-center space-x-1 mb-1">
-                            <Wind size={12} />
+                        <div className="flex flex-col items-center text-xs text-slate-500 font-bold">
+                          <div className="flex items-center space-x-2 mb-1.5">
+                            <Wind size={16} />
                             <span>{windSpeed?.toFixed(0)} mph</span>
                           </div>
-                          <div className="flex items-center space-x-1">
-                            <Navigation size={10} style={{ transform: `rotate(${windDir}deg)` }} className="text-slate-400" />
+                          <div className="flex items-center space-x-2">
+                            <Navigation size={14} style={{ transform: `rotate(${windDir}deg)` }} className="text-slate-400" />
                             <span className="uppercase">{getWindDirLabel(windDir)}</span>
                           </div>
                         </div>
@@ -836,25 +838,25 @@ function App() {
              
              {energyData ? (
                <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-2">
-                   <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-800">
-                     <span className="text-[8px] text-slate-500 uppercase block">Today</span>
-                     <span className="text-lg font-black text-emerald-400">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
+                 <div className="grid grid-cols-2 gap-3">
+                   <div className="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+                     <span className="text-[10px] text-slate-500 uppercase block font-black">Today</span>
+                     <span className="text-2xl font-black text-emerald-400">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
                    </div>
-                   <div className="bg-slate-900/50 p-2 rounded-xl border border-slate-800">
-                     <span className="text-[8px] text-slate-500 uppercase block">This Month</span>
-                     <span className="text-lg font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
+                   <div className="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+                     <span className="text-[10px] text-slate-500 uppercase block font-black">This Month</span>
+                     <span className="text-2xl font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
                    </div>
                  </div>
                  
                  {role === 'admin' && (
-                   <div className="space-y-1 pt-2 border-t border-slate-900">
+                   <div className="space-y-2 pt-3 border-t border-slate-900">
                      {Object.entries(energyData.today).map(([component, stats]) => (
-                       <div key={component} className="flex justify-between items-center text-[10px]">
-                         <span className="text-slate-400 capitalize">{component.replace('_', ' ')}</span>
-                         <div className="flex items-center space-x-2">
-                           <span className="text-slate-600">{(stats.runtime / 3600).toFixed(1)}h</span>
-                           <span className="text-slate-300 font-bold">${stats.cost.toFixed(2)}</span>
+                       <div key={component} className="flex justify-between items-center text-xs">
+                         <span className="text-slate-400 capitalize font-bold">{component.replace('_', ' ')}</span>
+                         <div className="flex items-center space-x-3">
+                           <span className="text-slate-600 font-medium">{(stats.runtime / 3600).toFixed(1)}h</span>
+                           <span className="text-slate-300 font-black">${stats.cost.toFixed(2)}</span>
                          </div>
                        </div>
                      ))}
@@ -867,16 +869,16 @@ function App() {
           </div>
 
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-             <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Recent Activity</h3>
-             <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+             <h3 className="text-sm font-black text-slate-500 uppercase mb-4 tracking-widest">Recent Activity</h3>
+             <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                {usageLogs.length === 0 ? (
-                 <p className="text-[10px] text-slate-600 italic">No recent activity</p>
+                 <p className="text-xs text-slate-600 italic">No recent activity</p>
                ) : (
                  usageLogs.map(l => (
-                   <div key={l.id} className="text-[10px] border-l-2 border-blue-500/30 pl-2 py-1">
-                     <p className="text-slate-300 font-bold">{l.event}</p>
-                     <p className="text-slate-500 truncate">{l.details}</p>
-                     <p className="text-[8px] text-slate-600 italic">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
+                   <div key={l.id} className="text-xs border-l-2 border-blue-500/30 pl-3 py-1.5 hover:bg-slate-900/50 transition-colors">
+                     <p className="text-slate-200 font-black">{l.event}</p>
+                     <p className="text-slate-400 font-medium truncate">{l.details}</p>
+                     <p className="text-[10px] text-slate-600 italic mt-1 font-bold">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
                    </div>
                  ))
                )}
@@ -884,19 +886,19 @@ function App() {
           </div>
 
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-             <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Current Schedules</h3>
+             <h3 className="text-sm font-black text-slate-500 uppercase mb-4 tracking-widest">Current Schedules</h3>
              {schedules.length === 0 ? (
-               <p className="text-[10px] text-slate-600 italic">No schedules active</p>
+               <p className="text-xs text-slate-600 italic">No schedules active</p>
              ) : (
-               <div className="space-y-2 mb-4">
+               <div className="space-y-3 mb-6">
                  {schedules.map(s => (
-                   <div key={s.id} className="group flex justify-between items-center text-[10px]">
+                   <div key={s.id} className="group flex justify-between items-center text-xs">
                      <div className="flex flex-col">
                         <div className="flex items-center">
-                          <span className="text-slate-300 font-bold">{s.name}</span>
-                          <span className="text-slate-500 ml-2">({s.type})</span>
+                          <span className="text-slate-200 font-black">{s.name}</span>
+                          <span className="text-slate-500 ml-2 font-bold">({s.type})</span>
                         </div>
-                        <span className="text-slate-500">{s.start_time} - {s.end_time}</span>
+                        <span className="text-slate-400 font-black mt-0.5">{s.start_time} - {s.end_time}</span>
                      </div>
                      {role === 'admin' && (
                        <div className="opacity-0 group-hover:opacity-100 flex space-x-2 transition">
