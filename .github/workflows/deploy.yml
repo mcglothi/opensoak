@@ -18,8 +18,14 @@ jobs:
           git fetch --all
           git reset --hard origin/main
 
-      - name: Restart OpenSoak Service
+      - name: Install Frontend Dependencies
         run: |
-          # Restarting the service to apply code changes
-          sudo systemctl restart opensoak.service || echo "Service not found or restart failed."
+          cd /opt/opensoak/frontend
+          /home/mcglothi/.nvm/versions/node/v20.20.0/bin/npm install
+
+      - name: Restart OpenSoak Services
+        run: |
+          # Restarting both services to apply code changes
+          sudo systemctl restart opensoak.service || echo "Backend service restart failed."
+          sudo systemctl restart opensoak-frontend.service || echo "Frontend service restart failed."
           echo "OpenSoak deployment complete."
