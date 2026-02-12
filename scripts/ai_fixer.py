@@ -101,13 +101,15 @@ CONSTRAINTS:
 - Provide the FULL content of the file.
 
 RESPONSE FORMAT:
-Your response must be a valid JSON object:
+Your response must be a single, valid JSON object.
+IMPORTANT: Ensure all newlines in the "content" field are escaped as \\n and all double quotes are escaped as \\".
+
 {{
   "explanation": "Briefly explain what was wrong and how you fixed it.",
   "files": [
     {{
       "path": "path/to/file.py",
-      "content": "Full new content..."
+      "content": "Full new content of the file..."
     }}
   ]
 }}
@@ -120,16 +122,31 @@ CODEBASE CONTEXT:
 
     # Retry loop for validation
     attempts = 0
-    while attempts < 2:
+    max_attempts = 3
+    success = False
+    
+    while attempts < max_attempts:
         response = model.generate_content(prompt)
         try:
-            clean_json = response.text.strip()
-            if clean_json.startswith("```json"): clean_json = clean_json[7:-3].strip()
-            elif clean_json.startswith("```"): clean_json = clean_json[3:-3].strip()
-            data = json.loads(clean_json)
+            # More robust JSON extraction
+            raw_text = response.text.strip()
+            
+            # Find the first { and last }
+            start = raw_text.find('{')
+            end = raw_text.rfind('}')
+            
+            if start == -1 or end == -1:
+                raise ValueError("Could not find JSON object in response")
+                
+            clean_json = raw_text[start:end+1]
+            
+            # Use strict=False to allow some control characters
+            data = json.loads(clean_json, strict=False)
         except Exception as e:
-            print(f"Failed to parse JSON: {e}")
+            print(f"Failed to parse JSON (Attempt {attempts+1}): {e}")
             attempts += 1
+            if attempts < max_attempts:
+                prompt += f"\n\nYour previous response was not valid JSON. Error: {str(e)}. Please ensure your entire response is a single valid JSON object."
             continue
 
         # 4. Apply Changes Locally for Validation
