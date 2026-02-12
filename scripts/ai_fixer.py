@@ -2,11 +2,11 @@ import os
 import sys
 import json
 import base64
-from github import Github
+from github import Github, Auth
 import google.generativeai as genai
 
 # Configuration
-GEMINI_MODEL = "gemini-1.5-pro" # Use Pro for deep reasoning
+GEMINI_MODEL = "gemini-1.5-pro-latest" # Use Pro for deep reasoning
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -18,7 +18,8 @@ def main():
         sys.exit(1)
 
     # 1. Initialize Clients
-    g = Github(GITHUB_TOKEN)
+    auth = Auth.Token(GITHUB_TOKEN)
+    g = Github(auth=auth)
     repo = g.get_repo(REPO_NAME)
     issue = repo.get_issue(number=ISSUE_NUMBER)
     genai.configure(api_key=GEMINI_API_KEY)
