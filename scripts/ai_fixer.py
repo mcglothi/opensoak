@@ -6,7 +6,7 @@ from github import Github, Auth
 import google.generativeai as genai
 
 # Configuration
-GEMINI_MODEL = "gemini-1.5-flash" # High-speed model
+GEMINI_MODEL = "gemini-1.5-pro" # High-reasoning model
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -21,9 +21,30 @@ def main():
     auth = Auth.Token(GITHUB_TOKEN)
     g = Github(auth=auth)
     repo = g.get_repo(REPO_NAME)
-    issue = repo.get_issue(number=ISSUE_NUMBER)
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(GEMINI_MODEL)
+    
+    # Programmatically find available models
+    print("Checking available models...")
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    for m in available_models:
+        print(f"- {m}")
+
+    target_model = GEMINI_MODEL
+    if f"models/{GEMINI_MODEL}" not in available_models and GEMINI_MODEL not in available_models:
+        print(f"Warning: {GEMINI_MODEL} not found. Selecting best available model...")
+        # Prefer Pro, then Flash, then anything
+        pros = [m for m in available_models if "pro" in m.lower()]
+        flashes = [m for m in available_models if "flash" in m.lower()]
+        if pros:
+            target_model = pros[0]
+        elif flashes:
+            target_model = flashes[0]
+        else:
+            target_model = available_models[0]
+    
+    print(f"Using Model: {target_model}")
+    model = genai.GenerativeModel(target_model)
+    issue = repo.get_issue(number=ISSUE_NUMBER)
 
     print(f"Analyzing Issue #{ISSUE_NUMBER}: {issue.title}")
 
