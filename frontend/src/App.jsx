@@ -782,6 +782,21 @@ function App() {
                         >
                           <Zap className="mr-2" /> Master Shutdown
                         </button>
+                        <button 
+                          onClick={async () => {
+                            if (confirm("Pull latest updates from GitHub?")) {
+                              try {
+                                await axios.post(`${API_BASE}/control/update-system`);
+                                alert("Update pulled! System restarting...");
+                              } catch (e) {
+                                alert("Update failed: " + e.message);
+                              }
+                            }
+                          }}
+                          className="w-full flex items-center justify-center p-4 rounded-2xl border border-blue-500/50 bg-blue-500/10 text-blue-400 font-black uppercase tracking-tighter hover:bg-blue-500/20 transition"
+                        >
+                          <span className="mr-2">🔄</span> Update System
+                        </button>
                       </div>
                     </div>
                   </>

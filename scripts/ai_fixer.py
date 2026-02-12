@@ -154,5 +154,18 @@ CODEBASE CONTEXT:
     issue.create_comment(f"AI Agent has proposed a fix in Pull Request #{pr.number}")
     print(f"PR Created: {pr.html_url}")
 
+    # 8. Notify via Discord (if configured)
+    discord_webhook = os.getenv("DISCORD_WEBHOOK_URL")
+    if discord_webhook:
+        import requests
+        msg = {
+            "content": f"🤖 **AI Agent Report**\nI have analyzed Issue #{ISSUE_NUMBER} and created a fix!\n\n**PR:** {pr.html_url}\n\nPlease review and merge if it looks correct."
+        }
+        try:
+            requests.post(discord_webhook, json=msg)
+            print("Discord notification sent.")
+        except Exception as e:
+            print(f"Failed to send Discord notification: {e}")
+
 if __name__ == "__main__":
     main()

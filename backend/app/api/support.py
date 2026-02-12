@@ -44,7 +44,7 @@ async def report_bug(report: BugReport, db: Session = Depends(get_db)):
 
 ---
 *Submitted via internal Support API*""",
-        "labels": ["bug", "user-reported"]
+        "labels": ["bug", "user-reported", "ai-fix"]
     }
 
     try:
