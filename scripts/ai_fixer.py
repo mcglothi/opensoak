@@ -81,6 +81,8 @@ CONSTRAINTS:
 - Do not make unnecessary changes.
 - Adhere to the existing code style.
 - Only provide files that need changes.
+- Ensure the code is syntactically correct (e.g., no duplicate variable declarations, no stray characters).
+- Provide the FULL content of the file, not just snippets.
 
 RESPONSE FORMAT:
 Your response must be a valid JSON object with the following structure:
