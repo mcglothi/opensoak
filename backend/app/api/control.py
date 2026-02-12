@@ -57,8 +57,6 @@ def start_soak(soak: SoakStart, db: Session = Depends(get_db)):
     # Update state
     state.manual_soak_active = True
     state.manual_soak_expires = datetime.now() + timedelta(minutes=duration)
-    # state.jet_pump = True  # Removed per user request
-    # state.light = True     # Removed per user request
     state.heater = True
     
     # Update target temp
@@ -114,38 +112,20 @@ def master_shutdown(db: Session = Depends(get_db)):
     hottub_engine.system_locked = True
     hottub_engine.safety_status = "STOP: MASTER SHUTDOWN"
     
-        log = UsageLog(event="Master Shutdown", details="System emergency stop executed by admin")
+    log = UsageLog(event="Master Shutdown", details="System emergency stop executed by admin")
+    db.add(log)
+    db.commit()
     
-        db.add(log)
-    
-        db.commit()
-    
-        
-    
-        return {"status": "all systems off and locked"}
-    
-    
-    
-    @router.post("/update-system")
-    
-    def update_system():
-    
-        import subprocess
-    
-        try:
-    
-            # Pull latest code
-    
-            subprocess.check_call(["git", "pull", "origin", "main"])
-    
-            # In a real systemd environment, we would restart the service
-    
-            # subprocess.Popen(["sudo", "systemctl", "restart", "opensoak"])
-    
-            return {"status": "update pulled", "message": "Code updated. Please restart service manually if not running via systemd."}
-    
-        except Exception as e:
-    
-            raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
-    
-    
+    return {"status": "all systems off and locked"}
+
+@router.post("/update-system")
+def update_system():
+    import subprocess
+    try:
+        # Pull latest code
+        subprocess.check_call(["git", "pull", "origin", "main"])
+        # In a real systemd environment, we would restart the service
+        # subprocess.Popen(["sudo", "systemctl", "restart", "opensoak"])
+        return {"status": "update pulled", "message": "Code updated. Please restart service manually if not running via systemd."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
