@@ -8,19 +8,19 @@ on:
 jobs:
   deploy:
     if: github.event.pull_request.merged == true
-    # This matches the label you give your Raspberry Pi runner
-    runs-on: [self-hosted, linux, arm64] 
+    # Matching your Pi's exact labels: 'self-hosted', 'Linux', 'ARM'
+    runs-on: [self-hosted, Linux, ARM] 
 
     steps:
       - name: Pull Latest Code
         run: |
-          cd /home/mcglothi/code/opensoak
-          git pull origin main
+          # Use the GITHUB_WORKSPACE or specific path
+          cd $GITHUB_WORKSPACE
+          git fetch origin main
+          git reset --hard origin/main
 
-      - name: Restart Services
+      - name: Restart OpenSoak Service
         run: |
-          # If you are using systemd (recommended for the Pi)
-          # sudo systemctl restart opensoak
-          
-          # For your current setup, we might just log the update
-          echo "OpenSoak updated to latest version from GitHub."
+          # Restarting the service to apply code changes
+          sudo systemctl restart opensoak.service || echo "Service not found or restart failed."
+          echo "OpenSoak deployment complete."
