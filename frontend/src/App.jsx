@@ -477,13 +477,13 @@ function App() {
               )}
             </div>
             
-            <div className="mt-8 flex flex-wrap items-center gap-4 md:gap-0 md:space-x-4">
+            <div className="mt-10 flex flex-wrap items-center gap-6 md:gap-0 md:space-x-8">
               <div className="flex flex-col group relative">
-                <span className="text-slate-500 text-xs uppercase font-black tracking-widest">Target Temp</span>
-                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-48 z-50 shadow-2xl">
+                <span className="text-slate-500 text-sm uppercase font-black tracking-[0.2em]">Target Temp</span>
+                <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block bg-slate-800 text-sm text-white p-3 rounded-xl border border-slate-700 w-64 z-50 shadow-2xl">
                   Temperature the tub will maintain while in use.
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-5 mt-1">
                   {role !== 'viewer' ? (
                     <input 
                       type="number" 
@@ -513,55 +513,59 @@ function App() {
                         }
                         setIsEditingTemp(false);
                       }}
-                      className="bg-slate-950 border border-slate-800 text-3xl font-black text-blue-400 w-28 px-2 py-1 rounded outline-none focus:border-blue-500 transition"
+                      className="bg-slate-950 border border-slate-800 text-4xl font-black text-blue-400 w-32 px-3 py-2 rounded-2xl outline-none focus:border-blue-500 transition shadow-inner"
                     />
                   ) : (
-                    <span className="text-3xl font-black text-blue-400">{settings?.set_point}°F</span>
+                    <span className="text-4xl font-black text-blue-400">{settings?.set_point}°F</span>
                   )}
                   {role !== 'viewer' && (
-                    <div className="flex space-x-1">
-                      <button onClick={() => updateSetPoint(0.5)} title="Increase Target Temp" className="p-1 hover:bg-slate-800 rounded transition scale-110"><ChevronUp /></button>
-                      <button onClick={() => updateSetPoint(-0.5)} title="Decrease Target Temp" className="p-1 hover:bg-slate-800 rounded transition scale-110"><ChevronDown /></button>
+                    <div className="flex space-x-2">
+                      <button onClick={() => updateSetPoint(0.5)} title="Increase Target Temp" className="p-2 hover:bg-slate-800 rounded-xl transition scale-125"><ChevronUp /></button>
+                      <button onClick={() => updateSetPoint(-0.5)} title="Decrease Target Temp" className="p-2 hover:bg-slate-800 rounded-xl transition scale-125"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="h-10 w-px bg-slate-800 mx-4 hidden md:block"></div>
+              <div className="h-14 w-px bg-slate-800 mx-6 hidden md:block"></div>
               <div className="flex flex-col group relative">
-                <span className="text-slate-500 text-xs uppercase font-black tracking-widest">Rest Temp</span>
-                <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-48 z-50 shadow-2xl">
+                <span className="text-slate-500 text-sm uppercase font-black tracking-[0.2em]">Rest Temp</span>
+                <div className="absolute bottom-full left-0 mb-3 hidden group-hover:block bg-slate-800 text-sm text-white p-3 rounded-xl border border-slate-700 w-64 z-50 shadow-2xl">
                   Temperature the tub maintains when not in use.
                 </div>
-                <div className="flex items-center space-x-4">
-                  <span className="text-2xl font-bold text-slate-400">{settings?.default_rest_temp}°F</span>
+                <div className="flex items-center space-x-5 mt-1">
+                  <span className="text-3xl font-black text-slate-400">{settings?.default_rest_temp}°F</span>
                   {role === 'admin' && (
-                    <div className="flex space-x-1">
-                      <button onClick={() => updateRestTemp(0.5)} title="Increase Rest Temp" className="p-1 hover:bg-slate-800 rounded transition scale-90"><ChevronUp /></button>
-                      <button onClick={() => updateRestTemp(-0.5)} title="Decrease Rest Temp" className="p-1 hover:bg-slate-800 rounded transition scale-90"><ChevronDown /></button>
+                    <div className="flex space-x-2">
+                      <button onClick={() => updateRestTemp(0.5)} title="Increase Rest Temp" className="p-2 hover:bg-slate-800 rounded-xl transition scale-110"><ChevronUp /></button>
+                      <button onClick={() => updateRestTemp(-0.5)} title="Decrease Rest Temp" className="p-2 hover:bg-slate-800 rounded-xl transition scale-110"><ChevronDown /></button>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="h-10 w-px bg-slate-800 mx-4 hidden md:block"></div>
+              <div className="h-14 w-px bg-slate-800 mx-6 hidden md:block"></div>
               <div className="flex flex-col">
-                <span className="text-slate-500 text-xs uppercase font-black tracking-widest">Status</span>
-                <div className="flex items-center space-x-3">
-                  <span className={`text-xl font-bold ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>
+                <span className="text-slate-500 text-sm uppercase font-black tracking-[0.2em]">Status</span>
+                <div className="flex items-center space-x-4 mt-1">
+                  <span className={`text-2xl font-black ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>
                     {isHeaterOn ? 'Heating...' : 'Ready'}
                   </span>
                   {status?.desired_state?.manual_soak_active && (
                     <button 
                       onClick={cancelSoak} 
-                      className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase px-3 py-1.5 rounded-xl transition shadow-lg shadow-red-500/20"
+                      className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white text-xs font-black uppercase px-4 py-2 rounded-2xl transition shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95"
                       title="End current session and return to rest temperature"
                     >
-                      <Zap size={12} className="fill-current" />
-                      <span>Stop</span>
+                      <Zap size={14} className="fill-current" />
+                      <span>Stop Session</span>
                     </button>
                   )}
                 </div>
                 {status?.desired_state?.manual_soak_active && (
-                   <span className="text-xs text-blue-400 font-bold uppercase tracking-widest animate-pulse mt-1">Manual Soak Active</span>
+                   <span className="text-sm text-blue-400 font-black uppercase tracking-widest animate-pulse mt-2">Manual Soak Active</span>
+                )}
+                {status?.desired_state?.jet_pump && !status?.desired_state?.manual_soak_active && <span className="text-sm text-blue-400 font-black uppercase tracking-widest mt-2 animate-pulse">Jets Active</span>}
+              </div>
+            </div>
                 )}
                 {status?.desired_state?.jet_pump && !status?.desired_state?.manual_soak_active && <span className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 animate-pulse">Jets Active</span>}
               </div>
@@ -838,24 +842,24 @@ function App() {
              
              {energyData ? (
                <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-3">
-                   <div className="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
-                     <span className="text-[10px] text-slate-500 uppercase block font-black">Today</span>
-                     <span className="text-2xl font-black text-emerald-400">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-slate-900/50 p-4 rounded-[1.5rem] border border-slate-800">
+                     <span className="text-xs text-slate-500 uppercase block font-black mb-1">Today</span>
+                     <span className="text-3xl font-black text-emerald-400">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
                    </div>
-                   <div className="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
-                     <span className="text-[10px] text-slate-500 uppercase block font-black">This Month</span>
-                     <span className="text-2xl font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
+                   <div className="bg-slate-900/50 p-4 rounded-[1.5rem] border border-slate-800">
+                     <span className="text-xs text-slate-500 uppercase block font-black mb-1">This Month</span>
+                     <span className="text-3xl font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
                    </div>
                  </div>
                  
                  {role === 'admin' && (
-                   <div className="space-y-2 pt-3 border-t border-slate-900">
+                   <div className="space-y-3 pt-4 border-t border-slate-900">
                      {Object.entries(energyData.today).map(([component, stats]) => (
-                       <div key={component} className="flex justify-between items-center text-xs">
+                       <div key={component} className="flex justify-between items-center text-sm">
                          <span className="text-slate-400 capitalize font-bold">{component.replace('_', ' ')}</span>
-                         <div className="flex items-center space-x-3">
-                           <span className="text-slate-600 font-medium">{(stats.runtime / 3600).toFixed(1)}h</span>
+                         <div className="flex items-center space-x-4">
+                           <span className="text-slate-600 font-bold">{(stats.runtime / 3600).toFixed(1)}h</span>
                            <span className="text-slate-300 font-black">${stats.cost.toFixed(2)}</span>
                          </div>
                        </div>
@@ -868,37 +872,37 @@ function App() {
              )}
           </div>
 
-          <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-             <h3 className="text-sm font-black text-slate-500 uppercase mb-4 tracking-widest">Recent Activity</h3>
-             <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="mt-8 p-6 bg-slate-950 rounded-3xl border border-slate-800">
+             <h3 className="text-base font-black text-slate-500 uppercase mb-6 tracking-widest">Recent Activity</h3>
+             <div className="space-y-4 max-h-80 overflow-y-auto pr-3 custom-scrollbar">
                {usageLogs.length === 0 ? (
-                 <p className="text-xs text-slate-600 italic">No recent activity</p>
+                 <p className="text-sm text-slate-600 italic">No recent activity</p>
                ) : (
                  usageLogs.map(l => (
-                   <div key={l.id} className="text-xs border-l-2 border-blue-500/30 pl-3 py-1.5 hover:bg-slate-900/50 transition-colors">
-                     <p className="text-slate-200 font-black">{l.event}</p>
-                     <p className="text-slate-400 font-medium truncate">{l.details}</p>
-                     <p className="text-[10px] text-slate-600 italic mt-1 font-bold">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
+                   <div key={l.id} className="text-sm border-l-4 border-blue-500/30 pl-4 py-2 hover:bg-slate-900/50 transition-colors">
+                     <p className="text-slate-100 font-black text-base">{l.event}</p>
+                     <p className="text-slate-400 font-bold truncate">{l.details}</p>
+                     <p className="text-xs text-slate-600 italic mt-1.5 font-black">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
                    </div>
                  ))
                )}
              </div>
           </div>
 
-          <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800">
-             <h3 className="text-sm font-black text-slate-500 uppercase mb-4 tracking-widest">Current Schedules</h3>
+          <div className="mt-8 p-6 bg-slate-950 rounded-3xl border border-slate-800">
+             <h3 className="text-base font-black text-slate-500 uppercase mb-6 tracking-widest">Current Schedules</h3>
              {schedules.length === 0 ? (
-               <p className="text-xs text-slate-600 italic">No schedules active</p>
+               <p className="text-sm text-slate-600 italic">No schedules active</p>
              ) : (
-               <div className="space-y-3 mb-6">
+               <div className="space-y-4 mb-8">
                  {schedules.map(s => (
-                   <div key={s.id} className="group flex justify-between items-center text-xs">
+                   <div key={s.id} className="group flex justify-between items-center text-sm">
                      <div className="flex flex-col">
                         <div className="flex items-center">
-                          <span className="text-slate-200 font-black">{s.name}</span>
-                          <span className="text-slate-500 ml-2 font-bold">({s.type})</span>
+                          <span className="text-slate-100 font-black text-base">{s.name}</span>
+                          <span className="text-slate-500 ml-2 font-black text-xs">({s.type})</span>
                         </div>
-                        <span className="text-slate-400 font-black mt-0.5">{s.start_time} - {s.end_time}</span>
+                        <span className="text-slate-400 font-black mt-1 text-xs">{s.start_time} - {s.end_time}</span>
                      </div>
                      {role === 'admin' && (
                        <div className="opacity-0 group-hover:opacity-100 flex space-x-2 transition">
