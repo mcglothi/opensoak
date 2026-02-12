@@ -12,11 +12,10 @@ jobs:
     runs-on: [self-hosted, Linux, ARM] 
 
     steps:
-      - name: Pull Latest Code
+      - name: Update Code on Raspberry Pi
         run: |
-          # Use the GITHUB_WORKSPACE or specific path
-          cd $GITHUB_WORKSPACE
-          git fetch origin main
+          cd /opt/opensoak
+          git fetch --all
           git reset --hard origin/main
 
       - name: Restart OpenSoak Service
