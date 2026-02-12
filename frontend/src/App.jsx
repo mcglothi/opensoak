@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Thermometer, 
-  Droplets, 
-  Wind, 
-  Lightbulb, 
-  Zap, 
-  ShieldCheck, 
+import {
+  Thermometer,
+  Droplets,
+  Wind,
+  Lightbulb,
+  Zap,
+  ShieldCheck,
   Settings as SettingsIcon,
   Clock,
   ChevronUp,
@@ -22,17 +22,22 @@ import {
   Umbrella,
   HelpCircle
 } from 'lucide-react';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
 } from 'recharts';
 
 const API_BASE = "http://localhost:8000/api";
+
+// Placeholder for admin key. In a real production environment, this should be securely managed.
+// For local testing, you can set an environment variable ADMIN_API_KEY in backend/.env
+// and pass the same value from the frontend for 'admin' role via a secure method.
+const ADMIN_KEY_FRONTEND_PLACEHOLDER = "supersecretadminkey";
 
 function App() {
   const [status, setStatus] = useState(null);
@@ -53,6 +58,13 @@ function App() {
   const [timeLeft, setTimeLeft] = useState(null);
   const [showBugReport, setShowBugReport] = useState(false);
   const [bugSubmitting, setBugSubmitting] = useState(false);
+
+  const getAuthHeaders = () => {
+    if (role === 'admin') {
+      return { 'X-Admin-Key': ADMIN_KEY_FRONTEND_PLACEHOLDER };
+    }
+    return {};
+  };
 
   const fetchData = async () => {
     try {
@@ -129,36 +141,49 @@ function App() {
     }
 
     try {
-      await axios.post(`${API_BASE}/control/`, { [key]: val });
+      await axios.post(`${API_BASE}/control/`, { [key]: val }, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error updating control", err);
+      alert(`Control update failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
   const resetFaults = async () => {
-    if (role !== 'admin') return;
+    if (role !== 'admin') {
+        alert("Only admin users can reset faults.");
+        return;
+    }
     try {
-      await axios.post(`${API_BASE}/control/reset-faults`);
+      await axios.post(`${API_BASE}/control/reset-faults`, {}, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error resetting faults", err);
+      alert(`Reset faults failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
   const masterShutdown = async () => {
-    if (role !== 'admin') return;
+    if (role !== 'admin') {
+        alert("Only admin users can perform a master shutdown.");
+        return;
+    }
     if (!window.confirm("Are you sure you want to shut down ALL systems and lock the tub?")) return;
     try {
-      await axios.post(`${API_BASE}/control/master-shutdown`);
+      await axios.post(`${API_BASE}/control/master-shutdown`, {}, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error in master shutdown", err);
+      alert(`Master shutdown failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
   const createSchedule = async (e) => {
     e.preventDefault();
+    if (role !== 'admin') {
+        alert("Only admin users can create/edit schedules.");
+        return;
+    }
     const formData = new FormData(e.target);
     const data = {
       name: formData.get('name'),
@@ -172,9 +197,9 @@ function App() {
     };
     try {
       if (editingSchedule) {
-        await axios.put(`${API_BASE}/schedules/${editingSchedule.id}`, data);
+        await axios.put(`${API_BASE}/schedules/${editingSchedule.id}`, data, { headers: getAuthHeaders() });
       } else {
-        await axios.post(`${API_BASE}/schedules/`, data);
+        await axios.post(`${API_BASE}/schedules/`, data, { headers: getAuthHeaders() });
       }
       fetchData();
       e.target.reset();
@@ -188,12 +213,16 @@ function App() {
   };
 
   const deleteSchedule = async (id) => {
-    if (role !== 'admin') return;
+    if (role !== 'admin') {
+        alert("Only admin users can delete schedules.");
+        return;
+    }
     try {
-      await axios.delete(`${API_BASE}/schedules/${id}`);
+      await axios.delete(`${API_BASE}/schedules/${id}`, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error deleting schedule", err);
+      alert(`Delete schedule failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -214,27 +243,37 @@ function App() {
   };
 
   const updateRestTemp = async (delta) => {
-    if (role !== 'admin') return;
+    if (role !== 'admin') {
+        alert("Only admin users can change the rest temperature.");
+        return;
+    }
     
     // Optimistic update
     const newTemp = Math.round((settings.default_rest_temp + delta) * 2) / 2;
     setSettings(prev => ({ ...prev, default_rest_temp: newTemp }));
     
     try {
-      await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp });
+      await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() });
       // fetchData();
     } catch (err) {
       console.error("Error updating rest temp", err);
+      alert(`Update failed: ${err.response?.data?.detail || err.message}`);
+      // Revert optimistic update on error
+      setSettings(prev => ({ ...prev, default_rest_temp: settings.default_rest_temp }));
     }
   };
 
   const updateLocation = async (zip) => {
-    if (role !== 'admin') return;
+    if (role !== 'admin') {
+        alert("Only admin users can change the location.");
+        return;
+    }
     try {
-      await axios.post(`${API_BASE}/settings/`, { location: zip });
+      await axios.post(`${API_BASE}/settings/`, { location: zip }, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error updating location", err);
+      alert(`Update failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -263,29 +302,34 @@ function App() {
     setTempInput(newTemp.toString());
 
     try {
-      await axios.post(`${API_BASE}/settings/`, { set_point: newTemp });
+      await axios.post(`${API_BASE}/settings/`, { set_point: newTemp }, { headers: getAuthHeaders() });
       // fetchData() is handled by the interval, but we could call it if we wanted immediate confirmation
     } catch (err) {
       console.error("Error updating set point", err);
-      // Revert on error if necessary, but fetchData will naturally correct it
+      alert(`Update failed: ${err.response?.data?.detail || err.message}`);
+      // Revert on error if necessary
+      setSettings(prev => ({ ...prev, set_point: settings.set_point }));
+      setTempInput(settings.set_point.toString());
     }
   };
 
   const startSoak = async (temp, duration) => {
     try {
-      await axios.post(`${API_BASE}/control/start-soak`, { target_temp: temp, duration_minutes: parseInt(duration) });
+      await axios.post(`${API_BASE}/control/start-soak`, { target_temp: temp, duration_minutes: parseInt(duration) }, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error starting soak", err);
+      alert(`Start soak failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
   const cancelSoak = async () => {
     try {
-      await axios.post(`${API_BASE}/control/cancel-soak`);
+      await axios.post(`${API_BASE}/control/cancel-soak`, {}, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) {
       console.error("Error cancelling soak", err);
+      alert(`Cancel soak failed: ${err.response?.data?.detail || err.message}`);
     }
   };
 
@@ -297,7 +341,7 @@ function App() {
       const res = await axios.post(`${API_BASE}/support/report-bug`, {
         title: formData.get('title'),
         description: formData.get('description')
-      });
+      }, { headers: getAuthHeaders() });
       alert(`Bug reported successfully! Issue created at: ${res.data.issue_url}`);
       setShowBugReport(false);
     } catch (err) {
@@ -745,7 +789,7 @@ function App() {
                           onClick={async () => {
                             if (confirm("Pull latest updates from GitHub?")) {
                               try {
-                                await axios.post(`${API_BASE}/control/update-system`);
+                                await axios.post(`${API_BASE}/control/update-system`, {}, { headers: getAuthHeaders() });
                                 alert("Update pulled! System restarting...");
                               } catch (e) {
                                 alert("Update failed: " + e.message);
@@ -987,7 +1031,7 @@ function App() {
                           defaultValue={settings?.default_soak_duration || 60} 
                           onBlur={(e) => {
                             const val = parseInt(e.target.value);
-                            if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_duration: val });
+                            if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_duration: val }, { headers: getAuthHeaders() });
                           }}
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition font-black text-slate-100 shadow-inner"
                         />
@@ -1006,7 +1050,7 @@ function App() {
                           defaultValue={settings?.default_soak_temp || 104} 
                           onBlur={(e) => {
                             const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_temp: val });
+                            if (!isNaN(val)) axios.post(`${API_BASE}/settings/`, { default_soak_temp: val }, { headers: getAuthHeaders() });
                           }}
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition font-black text-slate-100 shadow-inner"
                         />
@@ -1026,16 +1070,16 @@ function App() {
                             const val = parseFloat(e.target.value);
                             if (!isNaN(val)) {
                               if (val > 110 && !window.confirm("Safety Warning: Setting the high-limit above 110°F is dangerous and could lead to scalding or equipment damage. Are you sure?")) {
-                                e.target.value = settings.max_temp_limit;
+                                e.target.value = settings.max_temp_limit; // Revert if cancelled
                                 return;
                               }
-                              axios.post(`${API_BASE}/settings/`, { max_temp_limit: val });
+                              axios.post(`${API_BASE}/settings/`, { max_temp_limit: val }, { headers: getAuthHeaders() });
                             }
                           }}
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-red-500 transition font-black text-red-400 shadow-inner"
                         />
                       </div>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl"> 
                         Hard safety limit for water temperature. Trigger emergency shutdown if exceeded.
                       </div>
                     </div>
@@ -1050,7 +1094,7 @@ function App() {
                           type="number"
                           step="0.01"
                           defaultValue={settings?.kwh_cost} 
-                          onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) })}
+                          onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} // Added headers
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                         />
                         <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl w-48">
@@ -1058,7 +1102,7 @@ function App() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {[
+                        {[ 
                           { label: "Heater Watts", key: "heater_watts", tip: "Power draw of the main heating element (usually 5500W)." },
                           { label: "Circ Pump Watts", key: "circ_pump_watts", tip: "Power draw of the low-speed circulation pump." },
                           { label: "Jet Pump Watts", key: "jet_pump_watts", tip: "Power draw of the high-speed therapy pump." },
@@ -1070,7 +1114,7 @@ function App() {
                             <input 
                               type="number"
                               defaultValue={settings?.[p.key]} 
-                              onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.key]: parseFloat(e.target.value) })}
+                              onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.key]: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} // Added headers
                               className="w-full bg-slate-900 text-xs p-2 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                             />
                             <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-[10px] text-white p-2 rounded border border-slate-700 z-50 shadow-2xl w-40">
@@ -1235,7 +1279,7 @@ function ControlToggle({ label, icon, active, onToggle, color, disabled, tooltip
             {loading && <span className="text-[10px] font-black uppercase tracking-tighter text-blue-400 animate-pulse">Syncing...</span>}
           </div>
         </div>
-        <div className="w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'} ">
+        <div className={`w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}`}>
           <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'} ${loading ? 'opacity-50 scale-75' : ''}`} />
         </div>
       </button>
