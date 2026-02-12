@@ -6,7 +6,8 @@ After=network.target
 User=mcglothi
 Group=mcglothi
 WorkingDirectory=/opt/opensoak/frontend
-ExecStart=/usr/bin/npm run dev -- --host 0.0.0.0 --port 5173
+Environment="PATH=/home/mcglothi/.nvm/versions/node/v20.20.0/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/mcglothi/.nvm/versions/node/v20.20.0/bin/npm run dev -- --host 0.0.0.0 --port 5173
 Restart=always
 RestartSec=5
 
