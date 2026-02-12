@@ -3,11 +3,14 @@ Description=OpenSoak Hot Tub Controller
 After=network.target
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/opensoak/backend
-Environment="DATABASE_URL=sqlite:////home/pi/opensoak/backend/hot_tub.db"
-ExecStart=/home/pi/opensoak/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 80
+User=mcglothi
+Group=mcglothi
+WorkingDirectory=/opt/opensoak/backend
+Environment="DATABASE_URL=sqlite:////opt/opensoak/backend/hot_tub.db"
+Environment="PYTHONPATH=/opt/opensoak/backend"
+ExecStart=/opt/opensoak/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
