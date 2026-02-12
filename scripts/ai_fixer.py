@@ -2,15 +2,37 @@ import os
 import sys
 import json
 import base64
+import subprocess
 from github import Github, Auth
 import google.generativeai as genai
 
 # Configuration
-GEMINI_MODEL = "models/gemini-1.5-flash" # More reliable quota
+GEMINI_MODEL = "models/gemini-1.5-flash" # Use Flash for stable quota and high-speed validation
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+def validate_code():
+    """Runs linting and basic checks to ensure the proposed fix doesn't break the app."""
+    print("Running Pre-Flight Validation...")
+    
+    # 1. Check Backend Syntax
+    try:
+        subprocess.check_output(["python3", "-m", "compileall", "backend/app"], stderr=subprocess.STDOUT)
+        print("✅ Backend syntax check passed.")
+    except subprocess.CalledProcessError as e:
+        return False, f"Backend Syntax Error:\n{e.output.decode()}"
+
+    # 2. Check Frontend Linting
+    try:
+        # We run lint from the frontend directory
+        subprocess.check_output(["npm", "run", "lint"], cwd="frontend", stderr=subprocess.STDOUT)
+        print("✅ Frontend linting passed.")
+    except subprocess.CalledProcessError as e:
+        return False, f"Frontend Linting Error:\n{e.output.decode()}"
+
+    return True, "All checks passed."
 
 def main():
     if not GEMINI_API_KEY:
@@ -24,17 +46,12 @@ def main():
     genai.configure(api_key=GEMINI_API_KEY)
     
     # Programmatically find available models
-    print("Checking available models...")
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     
     target_model = GEMINI_MODEL
     if target_model not in available_models:
-        print(f"Warning: {GEMINI_MODEL} not found. Selecting fallback...")
         flashes = [m for m in available_models if "flash" in m.lower()]
-        if flashes:
-            target_model = flashes[0]
-        else:
-            target_model = available_models[0]
+        target_model = flashes[0] if flashes else available_models[0]
     
     print(f"Using Model: {target_model}")
     model = genai.GenerativeModel(target_model)
@@ -47,7 +64,7 @@ def main():
     important_files = {}
     
     for root, dirs, files in os.walk("."):
-        if ".git" in root or "venv" in root or "node_modules" in root or "__pycache__" in root:
+        if any(x in root for x in [".git", "venv", "node_modules", "__pycache__", "dist"]):
             continue
         for file in files:
             path = os.path.join(root, file).replace("./", "")
@@ -80,18 +97,17 @@ YOUR TASK:
 CONSTRAINTS:
 - Do not make unnecessary changes.
 - Adhere to the existing code style.
-- Only provide files that need changes.
-- Ensure the code is syntactically correct (e.g., no duplicate variable declarations, no stray characters).
-- Provide the FULL content of the file, not just snippets.
+- Ensure the code is syntactically correct (no duplicate declarations, no stray characters).
+- Provide the FULL content of the file.
 
 RESPONSE FORMAT:
-Your response must be a valid JSON object with the following structure:
+Your response must be a valid JSON object:
 {{
   "explanation": "Briefly explain what was wrong and how you fixed it.",
   "files": [
     {{
       "path": "path/to/file.py",
-      "content": "Full new content of the file..."
+      "content": "Full new content..."
     }}
   ]
 }}
@@ -102,46 +118,61 @@ CODEBASE CONTEXT:
 {context_str}
 """
 
-    response = model.generate_content(prompt)
-    
-    # 4. Parse Response
-    try:
-        clean_json = response.text.strip()
-        if clean_json.startswith("```json"):
-            clean_json = clean_json[7:-3].strip()
-        elif clean_json.startswith("```"):
-            clean_json = clean_json[3:-3].strip()
-            
-        data = json.loads(clean_json)
-    except Exception as e:
-        print(f"Failed to parse AI response: {e}")
-        print(f"RAW RESPONSE: {response.text}")
+    # Retry loop for validation
+    attempts = 0
+    while attempts < 2:
+        response = model.generate_content(prompt)
+        try:
+            clean_json = response.text.strip()
+            if clean_json.startswith("```json"): clean_json = clean_json[7:-3].strip()
+            elif clean_json.startswith("```"): clean_json = clean_json[3:-3].strip()
+            data = json.loads(clean_json)
+        except Exception as e:
+            print(f"Failed to parse JSON: {e}")
+            attempts += 1
+            continue
+
+        # 4. Apply Changes Locally for Validation
+        for file_data in data["files"]:
+            os.makedirs(os.path.dirname(file_data["path"]), exist_ok=True)
+            with open(file_data["path"], "w") as f:
+                f.write(file_data["content"])
+
+        # 5. Validate
+        success, message = validate_code()
+        if success:
+            break
+        else:
+            print(f"Validation failed: {message}")
+            prompt += f"\n\nYour previous attempt failed validation with this error:\n{message}\nPlease fix the errors and try again."
+            attempts += 1
+
+    if not success:
+        issue.create_comment(f"❌ AI Agent failed to generate a valid fix after multiple attempts. Manual intervention required.\n\n**Validation Error:**\n```\n{message}\n```")
         sys.exit(1)
 
-    # 5. Apply Changes and Create PR
+    # 6. Push to GitHub and Create PR
     branch_name = f"ai-fix-issue-{ISSUE_NUMBER}"
     base_branch = repo.default_branch
-    
     sb = repo.get_branch(base_branch)
-    repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=sb.commit.sha)
+    try:
+        repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=sb.commit.sha)
+    except:
+        pass # Branch might already exist
 
     for file_data in data["files"]:
         path = file_data["path"]
         content = file_data["content"]
-        try:
-            contents = repo.get_contents(path, ref=branch_name)
-            repo.update_file(path, f"AI Fix: {issue.title}", content, contents.sha, branch=branch_name)
-            print(f"Updated {path}")
-        except:
-            repo.create_file(path, f"AI Fix: {issue.title}", content, branch=branch_name)
-            print(f"Created {path}")
+        contents = repo.get_contents(path, ref=branch_name)
+        repo.update_file(path, f"AI Fix: {issue.title}", content, contents.sha, branch=branch_name)
 
-    # 6. Create Pull Request
     pr_body = f"""
 ## AI-Generated Fix for Issue #{ISSUE_NUMBER}
 
 **Explanation:**
 {data['explanation']}
+
+**Closes #{ISSUE_NUMBER}**
 
 ---
 *Generated by the OpenSoak AI Fixer Agent.*
@@ -154,20 +185,14 @@ CODEBASE CONTEXT:
     )
 
     issue.create_comment(f"AI Agent has proposed a fix in Pull Request #{pr.number}")
-    print(f"PR Created: {pr.html_url}")
-
-    # 8. Notify via Discord (if configured)
+    
+    # 7. Notify Discord
     discord_webhook = os.getenv("DISCORD_WEBHOOK_URL")
     if discord_webhook:
         import requests
-        msg = {
-            "content": f"🤖 **AI Agent Report**\nI have analyzed Issue #{ISSUE_NUMBER} and created a fix!\n\n**PR:** {pr.html_url}\n\nPlease review and merge if it looks correct."
-        }
-        try:
-            requests.post(discord_webhook, json=msg)
-            print("Discord notification sent.")
-        except Exception as e:
-            print(f"Failed to send Discord notification: {e}")
+        requests.post(discord_webhook, json={
+            "content": f"🤖 **AI Agent Fix Ready!**\nIssue #{ISSUE_NUMBER}: {issue.title}\n**PR:** {pr.html_url}\n\n*Merging this PR will automatically close the issue.*"
+        })
 
 if __name__ == "__main__":
     main()
