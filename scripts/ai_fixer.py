@@ -6,7 +6,7 @@ from github import Github, Auth
 import google.generativeai as genai
 
 # Configuration
-GEMINI_MODEL = "gemini-1.5-pro-latest" # Use Pro for deep reasoning
+GEMINI_MODEL = "gemini-1.5-flash" # High-speed model
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
