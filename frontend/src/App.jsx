@@ -367,86 +367,45 @@ function App() {
           </div>
         </div>
         
-                <div className="flex flex-wrap items-center gap-4 md:space-x-6">
-        
-                            {weather && !weather.error && weather.current && (
-        
-                              <div className="bg-slate-900 px-6 py-4 rounded-full border border-slate-800 flex items-center space-x-5 shadow-lg transition-transform hover:scale-105">
-        
-                                {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 40 })}
-        
-                                <div className="flex flex-col leading-tight">
-        
-                                  <span className="text-2xl md:text-3xl font-black text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
-        
-                                  <span className="text-xs md:text-sm text-slate-500 uppercase font-black tracking-[0.1em]">{weather.city || "Unknown"}</span>
-        
-                                </div>
-        
-                              </div>
-        
-                            )}
-        
-                  
-        
-                            {/* Temporary Role Switcher */}
-        
-                            <select 
-        
-                              value={role} 
-        
-                              onChange={(e) => setRole(e.target.value)}
-        
-                              className="bg-slate-900 text-base md:text-lg text-slate-400 border border-slate-800 rounded-xl px-4 py-2 outline-none focus:border-blue-500 transition font-black"
-        
-                            >
-        
-                              <option value="viewer">Viewer Mode</option>
-        
-                              <option value="user">User Mode</option>
-        
-                              <option value="admin">Admin Mode</option>
-        
-                            </select>
-        
-                  
-        
-                            <div className="bg-slate-900 px-6 py-4 rounded-full border border-slate-800 flex items-center space-x-4 shadow-lg">
-        
-                              <Clock className="w-8 h-8 text-blue-400" />
-        
-                              <span className="text-xl md:text-2xl font-black text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-        
-                            </div>
-        
-                  
-        
-        
-        
-                  <button 
-        
-                    onClick={() => setShowBugReport(true)}
-        
-                    className="p-3 bg-slate-900 rounded-full border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500 transition-all shadow-lg group relative"
-        
-                    title="Report a Bug"
-        
-                  >
-        
-                    <HelpCircle className="w-7 h-7" />
-        
-                    <div className="absolute top-full mt-2 right-0 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-24 z-50 text-center shadow-2xl">
-        
-                      Support
-        
-                    </div>
-        
-                  </button>
-        
-                </div>
-        
-              </header>
-        
+        <div className="flex flex-wrap items-center gap-4 md:space-x-6">
+          {weather && !weather.error && weather.current && (
+            <div className="bg-slate-900 px-6 py-4 rounded-full border border-slate-800 flex items-center space-x-5 shadow-lg transition-transform hover:scale-105">
+              {React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 40 })}
+              <div className="flex flex-col leading-tight">
+                <span className="text-2xl md:text-3xl font-black text-white">{weather.current.temperature_2m?.toFixed(0) || "--"}°F</span>
+                <span className="text-xs md:text-sm text-slate-500 uppercase font-black tracking-[0.1em]">{weather.city || "Unknown"}</span>
+              </div>
+            </div>
+          )}
+          
+          {/* Temporary Role Switcher */}
+          <select 
+            value={role} 
+            onChange={(e) => setRole(e.target.value)}
+            className="bg-slate-900 text-base md:text-lg text-slate-400 border border-slate-800 rounded-xl px-4 py-2 outline-none focus:border-blue-500 transition font-black"
+          >
+            <option value="viewer">Viewer Mode</option>
+            <option value="user">User Mode</option>
+            <option value="admin">Admin Mode</option>
+          </select>
+          
+          <div className="bg-slate-900 px-6 py-4 rounded-full border border-slate-800 flex items-center space-x-4 shadow-lg">
+            <Clock className="w-8 h-8 text-blue-400" />
+            <span className="text-xl md:text-2xl font-black text-slate-100">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+          </div>
+          
+          <button 
+            onClick={() => setShowBugReport(true)}
+            className="p-3 bg-slate-900 rounded-full border border-slate-800 text-slate-400 hover:text-white hover:border-blue-500 transition-all shadow-lg group relative"
+            title="Report a Bug"
+          >
+            <HelpCircle className="w-7 h-7" />
+            <div className="absolute top-full mt-2 right-0 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 w-24 z-50 text-center shadow-2xl">
+              Support
+            </div>
+          </button>
+        </div>
+      </header>
         
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -752,10 +711,10 @@ function App() {
                   tooltip="Toggle underwater LED lighting."
                 />
                 
-                {(role === 'admin') && (
+                {role === 'admin' && (
                   <>
                     <div className="pt-4 border-t border-slate-800">
-                      <h3 className="text-xs font-bold text-slate-500 uppercase mb-4">Admin Controls</h3>
+                      <h3 className="text-sm font-bold text-slate-400 uppercase mb-4 tracking-widest">Admin Controls</h3>
                       <div className="space-y-4">
                         <ControlToggle 
                           label="Circ Pump" 
@@ -802,13 +761,6 @@ function App() {
                   </>
                 )}
                 
-                {role === 'user' && (
-                  <div className="pt-4 border-t border-slate-800">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest text-center">
-                      Admin features locked
-                    </p>
-                  </div>
-                )}
               </div>
             </>
           ) : (
@@ -990,7 +942,7 @@ function App() {
                </h3>
                <div className="space-y-6">
                  <div className="group relative">
-                   <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Weather Location</label>
+                   <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Weather Location</label>
                    <div className="flex items-center space-x-3 mt-1">
                      <MapPin size={16} className="text-slate-500" />
                      <input 
@@ -1000,14 +952,14 @@ function App() {
                        className="flex-1 bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition shadow-inner font-bold text-white"
                      />
                    </div>
-                   <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
+                   <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl w-48">
                      Used to fetch local weather & forecast.
                    </div>
                  </div>
 
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="group relative">
-                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Rest Temperature</label>
+                      <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Rest Temperature</label>
                       <div className="flex items-center space-x-2 mt-1">
                         <Thermometer size={16} className="text-slate-500" />
                         <input 
@@ -1027,7 +979,7 @@ function App() {
                       </div>
                     </div>
                     <div className="group relative">
-                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Default Soak Duration</label>
+                      <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Default Soak Duration</label>
                       <div className="flex items-center space-x-2 mt-1">
                         <Clock size={16} className="text-slate-500" />
                         <input 
@@ -1040,12 +992,12 @@ function App() {
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-blue-500 transition font-black text-slate-100 shadow-inner"
                         />
                       </div>
-                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
+                      <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl"> 
                         Default time for manual Quick Heat sessions.
                       </div>
                     </div>
                     <div className="group relative">
-                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Default Soak Temp</label>
+                      <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Default Soak Temp</label>
                       <div className="flex items-center space-x-2 mt-1">
                         <Thermometer size={16} className="text-slate-500" />
                         <input 
@@ -1064,7 +1016,7 @@ function App() {
                       </div>
                     </div>
                     <div className="group relative">
-                      <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest font-black">Safety High-Limit</label>
+                      <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest font-black">Safety High-Limit</label>
                       <div className="flex items-center space-x-2 mt-1">
                         <ShieldCheck size={16} className="text-slate-500" />
                         <input 
@@ -1093,7 +1045,7 @@ function App() {
                     <h4 className="text-xs font-black text-slate-500 uppercase mb-4 tracking-widest">Energy & Power Settings</h4>
                     <div className="space-y-4">
                       <div className="group relative">
-                        <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label>
+                        <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label>
                         <input 
                           type="number"
                           step="0.01"
@@ -1114,7 +1066,7 @@ function App() {
                           { label: "Ozone Watts", key: "ozone_watts", tip: "Power draw of the ozone purification system." }
                         ].map(p => (
                           <div key={p.key} className="group relative">
-                            <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter">{p.label}</label>
+                            <label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter">{p.label}</label>
                             <input 
                               type="number"
                               defaultValue={settings?.[p.key]} 
@@ -1283,7 +1235,7 @@ function ControlToggle({ label, icon, active, onToggle, color, disabled, tooltip
             {loading && <span className="text-[10px] font-black uppercase tracking-tighter text-blue-400 animate-pulse">Syncing...</span>}
           </div>
         </div>
-        <div className="w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}">
+        <div className="w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'} ">
           <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'} ${loading ? 'opacity-50 scale-75' : ''}`} />
         </div>
       </button>
