@@ -50,7 +50,7 @@ function App() {
   const [weather, setWeather] = useState(null);
   const [tempInput, setTempInput] = useState("");
   const [isEditingTemp, setIsEditingTemp] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(null);
+  const [timeLeft, setTimeLeft, setTimeLeft] = useState(null);
   const [showBugReport, setShowBugReport] = useState(false);
   const [bugSubmitting, setBugSubmitting] = useState(false);
 
@@ -845,21 +845,21 @@ function App() {
           {/* Energy Dashboard */}
           <div className="mt-8 p-4 bg-slate-950 rounded-2xl border border-slate-800 bg-glow-blue/5">
              <div className="flex justify-between items-center mb-4">
-               <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center">
-                 <Zap size={12} className="mr-1 text-orange-400" /> Operating Costs
+               <h3 className="text-base font-black text-slate-500 uppercase flex items-center tracking-widest">
+                 <Zap size={16} className="mr-1 text-orange-400" /> Operating Costs
                </h3>
-               <span className="text-[8px] text-slate-600 font-bold uppercase">Live Estimates</span>
+               <span className="text-sm text-slate-600 font-bold uppercase tracking-widest">Live Estimates</span>
              </div>
              
              {energyData ? (
                <div className="space-y-4">
                  <div className="grid grid-cols-2 gap-4">
                    <div className="bg-slate-900/50 p-4 rounded-[1.5rem] border border-slate-800">
-                     <span className="text-xs text-slate-500 uppercase block font-black mb-1">Today</span>
+                     <span className="text-sm text-slate-500 uppercase block font-black mb-1 tracking-widest">Today</span>
                      <span className="text-3xl font-black text-emerald-400">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
                    </div>
                    <div className="bg-slate-900/50 p-4 rounded-[1.5rem] border border-slate-800">
-                     <span className="text-xs text-slate-500 uppercase block font-black mb-1">This Month</span>
+                     <span className="text-sm text-slate-500 uppercase block font-black mb-1 tracking-widest">This Month</span>
                      <span className="text-3xl font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span>
                    </div>
                  </div>
@@ -940,7 +940,7 @@ function App() {
                  
                  {/* Day Selection */}
                  <div className="flex justify-between px-1">
-                   {[
+                   {[>
                      { label: 'S', val: 6 },
                      { label: 'M', val: 0 },
                      { label: 'T', val: 1 },
@@ -1106,7 +1106,7 @@ function App() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {[
+                        {[>
                           { label: "Heater Watts", key: "heater_watts", tip: "Power draw of the main heating element (usually 5500W)." },
                           { label: "Circ Pump Watts", key: "circ_pump_watts", tip: "Power draw of the low-speed circulation pump." },
                           { label: "Jet Pump Watts", key: "jet_pump_watts", tip: "Power draw of the high-speed therapy pump." },
@@ -1283,7 +1283,7 @@ function ControlToggle({ label, icon, active, onToggle, color, disabled, tooltip
             {loading && <span className="text-[10px] font-black uppercase tracking-tighter text-blue-400 animate-pulse">Syncing...</span>}
           </div>
         </div>
-        <div className={`w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}`}>
+        <div className="w-12 h-6 rounded-full relative transition-colors ${active ? 'bg-current opacity-80' : 'bg-slate-700'}">
           <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${active ? 'right-1' : 'left-1'} ${loading ? 'opacity-50 scale-75' : ''}`} />
         </div>
       </button>
