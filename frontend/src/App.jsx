@@ -566,10 +566,6 @@ function App() {
                 {status?.desired_state?.jet_pump && !status?.desired_state?.manual_soak_active && <span className="text-sm text-blue-400 font-black uppercase tracking-widest mt-2 animate-pulse">Jets Active</span>}
               </div>
             </div>
-                )}
-                {status?.desired_state?.jet_pump && !status?.desired_state?.manual_soak_active && <span className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-1 animate-pulse">Jets Active</span>}
-              </div>
-            </div>
 
             {/* Quick Soak Controls */}
             {role !== 'viewer' && !status?.desired_state?.manual_soak_active && (
