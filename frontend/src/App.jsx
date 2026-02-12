@@ -32,7 +32,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = `http://${window.location.hostname}:8000/api`;
 
 // Placeholder for admin key. In a real production environment, this should be securely managed.
 // For local testing, you can set an environment variable ADMIN_API_KEY in backend/.env

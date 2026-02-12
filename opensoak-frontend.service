@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenSoak Frontend (Vite)
+After=network.target
+
+[Service]
+User=mcglothi
+Group=mcglothi
+WorkingDirectory=/opt/opensoak/frontend
+ExecStart=/usr/bin/npm run dev -- --host 0.0.0.0 --port 5173
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
