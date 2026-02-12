@@ -50,7 +50,7 @@ function App() {
   const [weather, setWeather] = useState(null);
   const [tempInput, setTempInput] = useState("");
   const [isEditingTemp, setIsEditingTemp] = useState(false);
-  const [timeLeft, setTimeLeft, setTimeLeft] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(null);
   const [showBugReport, setShowBugReport] = useState(false);
   const [bugSubmitting, setBugSubmitting] = useState(false);
 
@@ -940,7 +940,7 @@ function App() {
                  
                  {/* Day Selection */}
                  <div className="flex justify-between px-1">
-                   {[>
+                   {[
                      { label: 'S', val: 6 },
                      { label: 'M', val: 0 },
                      { label: 'T', val: 1 },
@@ -1106,7 +1106,7 @@ function App() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {[>
+                        {[
                           { label: "Heater Watts", key: "heater_watts", tip: "Power draw of the main heating element (usually 5500W)." },
                           { label: "Circ Pump Watts", key: "circ_pump_watts", tip: "Power draw of the low-speed circulation pump." },
                           { label: "Jet Pump Watts", key: "jet_pump_watts", tip: "Power draw of the high-speed therapy pump." },
