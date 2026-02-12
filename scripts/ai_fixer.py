@@ -6,7 +6,7 @@ from github import Github, Auth
 import google.generativeai as genai
 
 # Configuration
-GEMINI_MODEL = "models/gemini-pro-latest" # Use Pro for deep reasoning
+GEMINI_MODEL = "models/gemini-1.5-flash" # More reliable quota
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -26,22 +26,12 @@ def main():
     # Programmatically find available models
     print("Checking available models...")
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    for m in available_models:
-        print(f"- {m}")
-
+    
     target_model = GEMINI_MODEL
     if target_model not in available_models:
-        print(f"Warning: {GEMINI_MODEL} not found. Selecting best available model...")
-        # Prefer 1.5 Pro, then Pro Latest, then 1.5 Flash
-        pros = [m for m in available_models if "1.5-pro" in m.lower()]
-        pro_latests = [m for m in available_models if "pro-latest" in m.lower()]
-        flashes = [m for m in available_models if "1.5-flash" in m.lower()]
-        
-        if pros:
-            target_model = pros[0]
-        elif pro_latests:
-            target_model = pro_latests[0]
-        elif flashes:
+        print(f"Warning: {GEMINI_MODEL} not found. Selecting fallback...")
+        flashes = [m for m in available_models if "flash" in m.lower()]
+        if flashes:
             target_model = flashes[0]
         else:
             target_model = available_models[0]
@@ -53,7 +43,6 @@ def main():
     print(f"Analyzing Issue #{ISSUE_NUMBER}: {issue.title}")
 
     # 2. Gather Context
-    # We'll gather the file structure and the content of major files
     file_structure = []
     important_files = {}
     
@@ -63,7 +52,6 @@ def main():
         for file in files:
             path = os.path.join(root, file).replace("./", "")
             file_structure.append(path)
-            # Only read text files that are likely relevant
             if file.endswith((".py", ".jsx", ".css", ".html", ".js", ".md", ".sh")):
                 try:
                     with open(path, "r") as f:
@@ -116,7 +104,6 @@ CODEBASE CONTEXT:
     
     # 4. Parse Response
     try:
-        # Clean up possible markdown code blocks from response
         clean_json = response.text.strip()
         if clean_json.startswith("```json"):
             clean_json = clean_json[7:-3].strip()
@@ -125,7 +112,7 @@ CODEBASE CONTEXT:
             
         data = json.loads(clean_json)
     except Exception as e:
-        print(f"Failed to parse AI response as JSON: {e}")
+        print(f"Failed to parse AI response: {e}")
         print(f"RAW RESPONSE: {response.text}")
         sys.exit(1)
 
@@ -133,22 +120,17 @@ CODEBASE CONTEXT:
     branch_name = f"ai-fix-issue-{ISSUE_NUMBER}"
     base_branch = repo.default_branch
     
-    # Create new branch
     sb = repo.get_branch(base_branch)
     repo.create_git_ref(ref=f"refs/heads/{branch_name}", sha=sb.commit.sha)
 
-    # Update files in the new branch
     for file_data in data["files"]:
         path = file_data["path"]
         content = file_data["content"]
-        
         try:
-            # Check if file exists to get its SHA
             contents = repo.get_contents(path, ref=branch_name)
             repo.update_file(path, f"AI Fix: {issue.title}", content, contents.sha, branch=branch_name)
             print(f"Updated {path}")
         except:
-            # Create new file if it doesn't exist
             repo.create_file(path, f"AI Fix: {issue.title}", content, branch=branch_name)
             print(f"Created {path}")
 
@@ -169,7 +151,6 @@ CODEBASE CONTEXT:
         base=base_branch
     )
 
-    # 7. Comment on Issue
     issue.create_comment(f"AI Agent has proposed a fix in Pull Request #{pr.number}")
     print(f"PR Created: {pr.html_url}")
 
