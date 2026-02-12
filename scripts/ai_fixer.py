@@ -45,18 +45,10 @@ def main():
                 except:
                     pass
 
-    context_str = "FILE STRUCTURE:
-" + "
-".join(file_structure) + "
-
-"
-    context_str += "FILE CONTENTS:
-"
+    context_str = "FILE STRUCTURE:\n" + "\n".join(file_structure) + "\n\n"
+    context_str += "FILE CONTENTS:\n"
     for path, content in important_files.items():
-        context_str += f"--- FILE: {path} ---
-{content}
-
-"
+        context_str += f"--- FILE: {path} ---\n{content}\n\n"
 
     # 3. Prompt Gemini
     prompt = f"""
