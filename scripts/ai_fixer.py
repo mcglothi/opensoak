@@ -4,10 +4,10 @@ import json
 import base64
 import subprocess
 from github import Github, Auth
-import google.generativeai as genai
+from google import genai
 
 # Configuration
-GEMINI_MODEL = "models/gemini-1.5-flash" # Use Flash for stable quota and high-speed validation
+GEMINI_MODEL = "gemini-1.5-flash" # Use Flash for stable quota and high-speed validation
 ISSUE_NUMBER = int(os.getenv("ISSUE_NUMBER"))
 REPO_NAME = os.getenv("REPO_NAME")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
@@ -43,18 +43,22 @@ def main():
     auth = Auth.Token(GITHUB_TOKEN)
     g = Github(auth=auth)
     repo = g.get_repo(REPO_NAME)
-    genai.configure(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=GEMINI_API_KEY)
     
     # Programmatically find available models
-    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    
+    print("Checking available models...")
+    available_models = [m.name for m in client.models.list()]
+    for m in available_models:
+        print(f"- {m}")
+
     target_model = GEMINI_MODEL
-    if target_model not in available_models:
-        flashes = [m for m in available_models if "flash" in m.lower()]
+    # The new SDK might not return "models/" prefix or might have different names
+    if target_model not in available_models and f"models/{target_model}" not in available_models:
+        print(f"Warning: {target_model} not found in available models. Selecting fallback...")
+        flashes = [m for m in available_models if "1.5-flash" in m.lower()]
         target_model = flashes[0] if flashes else available_models[0]
     
     print(f"Using Model: {target_model}")
-    model = genai.GenerativeModel(target_model)
     issue = repo.get_issue(number=ISSUE_NUMBER)
 
     print(f"Analyzing Issue #{ISSUE_NUMBER}: {issue.title}")
@@ -126,7 +130,7 @@ CODEBASE CONTEXT:
     success = False
     
     while attempts < max_attempts:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=target_model, contents=prompt)
         try:
             # More robust JSON extraction
             raw_text = response.text.strip()
@@ -180,8 +184,11 @@ CODEBASE CONTEXT:
     for file_data in data["files"]:
         path = file_data["path"]
         content = file_data["content"]
-        contents = repo.get_contents(path, ref=branch_name)
-        repo.update_file(path, f"AI Fix: {issue.title}", content, contents.sha, branch=branch_name)
+        try:
+            contents = repo.get_contents(path, ref=branch_name)
+            repo.update_file(path, f"AI Fix: {issue.title}", content, contents.sha, branch=branch_name)
+        except:
+            repo.create_file(path, f"AI Fix: {issue.title}", content, branch=branch_name)
 
     pr_body = f"""
 ## AI-Generated Fix for Issue #{ISSUE_NUMBER}
