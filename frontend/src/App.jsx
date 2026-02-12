@@ -879,10 +879,10 @@ function App() {
                  <p className="text-sm text-slate-600 italic">No recent activity</p>
                ) : (
                  usageLogs.map(l => (
-                   <div key={l.id} className="text-sm border-l-4 border-blue-500/30 pl-4 py-2 hover:bg-slate-900/50 transition-colors">
-                     <p className="text-slate-100 font-black text-base">{l.event}</p>
-                     <p className="text-slate-400 font-bold truncate">{l.details}</p>
-                     <p className="text-xs text-slate-600 italic mt-1.5 font-black">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
+                   <div key={l.id} className="border-l-4 border-blue-500/30 pl-4 py-2 hover:bg-slate-900/50 transition-colors">
+                     <p className="text-slate-100 font-black text-lg">{l.event}</p>
+                     <p className="text-slate-400 font-bold truncate text-base">{l.details}</p>
+                     <p className="text-sm text-slate-600 italic mt-1.5 font-black">{new Date(l.timestamp).toLocaleString([], {month: 'short', day:'numeric', hour: '2-digit', minute:'2-digit'})}</p>
                    </div>
                  ))
                )}
@@ -915,8 +915,9 @@ function App() {
                        </div>
                      )}
                    </div>
-                 ))}
-               </div>
+                 ))
+               }
+             </div>
              )}
 
              {role === 'admin' && (
@@ -1072,7 +1073,7 @@ function App() {
                           className="w-full bg-slate-900 text-sm p-3 rounded-xl outline-none border border-slate-800 focus:border-red-500 transition font-black text-red-400 shadow-inner"
                         />
                       </div>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl">
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover:block bg-slate-800 text-xs text-white p-2 rounded border border-slate-700 z-50 shadow-2xl"> 
                         Hard safety limit for water temperature. Trigger emergency shutdown if exceeded.
                       </div>
                     </div>
@@ -1082,7 +1083,7 @@ function App() {
                     <h4 className="text-xs font-black text-slate-500 uppercase mb-4 tracking-widest">Energy & Power Settings</h4>
                     <div className="space-y-4">
                       <div className="group relative">
-                        <label className="text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label>
+                        <label className="block text-xs text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label>
                         <input 
                           type="number"
                           step="0.01"
@@ -1095,7 +1096,7 @@ function App() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {[
+                        {[ 
                           { label: "Heater Watts", key: "heater_watts", tip: "Power draw of the main heating element (usually 5500W)." },
                           { label: "Circ Pump Watts", key: "circ_pump_watts", tip: "Power draw of the low-speed circulation pump." },
                           { label: "Jet Pump Watts", key: "jet_pump_watts", tip: "Power draw of the high-speed therapy pump." },
