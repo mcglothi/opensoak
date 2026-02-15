@@ -16,6 +16,7 @@ class SettingsUpdate(BaseModel):
     hysteresis_lower: Optional[float] = None
     max_temp_limit: Optional[float] = None
     location: Optional[str] = None
+    weather_provider: Optional[str] = None
     default_soak_duration: Optional[int] = None
     default_soak_temp: Optional[float] = None
     kwh_cost: Optional[float] = None
@@ -68,7 +69,7 @@ def update_settings(update: SettingsUpdate, db: Session = Depends(get_db), is_ad
     if not is_admin:
         admin_fields = [
             'default_rest_temp', 'hysteresis_upper', 'hysteresis_lower',
-            'max_temp_limit', 'location', 'default_soak_duration',
+            'max_temp_limit', 'location', 'weather_provider', 'default_soak_duration',
             'default_soak_temp', 'kwh_cost', 'heater_watts',
             'circ_pump_watts', 'jet_pump_watts', 'light_watts', 'ozone_watts'
         ]
@@ -82,6 +83,7 @@ def update_settings(update: SettingsUpdate, db: Session = Depends(get_db), is_ad
     if update.hysteresis_lower is not None: settings.hysteresis_lower = update.hysteresis_lower
     if update.max_temp_limit is not None: settings.max_temp_limit = update.max_temp_limit
     if update.location is not None: settings.location = update.location
+    if update.weather_provider is not None: settings.weather_provider = update.weather_provider
     if update.default_soak_duration is not None: settings.default_soak_duration = update.default_soak_duration
     if update.default_soak_temp is not None: settings.default_soak_temp = update.default_soak_temp
     if update.kwh_cost is not None: settings.kwh_cost = update.kwh_cost

@@ -20,6 +20,9 @@ class SoakStart(BaseModel):
     target_temp: float
     duration_minutes: int = 60
 
+class TimerAdjustment(BaseModel):
+    minutes: int
+
 def get_db():
     db = SessionLocal()
     try:
@@ -88,6 +91,28 @@ def cancel_soak(db: Session = Depends(get_db)):
     db.commit()
     
     return {"status": "soak cancelled", "reverted_to": settings.default_rest_temp}
+
+@router.post("/adjust-soak-timer")
+def adjust_soak_timer(adj: TimerAdjustment, db: Session = Depends(get_db)):
+    state = db.query(SystemState).first()
+    if not state or not state.manual_soak_active or not state.manual_soak_expires:
+        raise HTTPException(status_code=400, detail="No active soak session to adjust")
+
+    new_expiry = state.manual_soak_expires + timedelta(minutes=adj.minutes)
+    
+    # Don't allow timer to go below now
+    if new_expiry < datetime.now():
+        return cancel_soak(db)
+
+    state.manual_soak_expires = new_expiry
+    db.commit()
+    
+    event_type = "Time Added" if adj.minutes > 0 else "Time Removed"
+    log = UsageLog(event=f"Soak {event_type}", details=f"{abs(adj.minutes)} minutes adjusted. New expiry: {state.manual_soak_expires.strftime('%H:%M:%S')}")
+    db.add(log)
+    db.commit()
+    
+    return {"status": "timer adjusted", "expires": state.manual_soak_expires}
 
 @router.post("/reset-faults")
 def reset_faults(db: Session = Depends(get_db)):

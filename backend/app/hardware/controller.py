@@ -26,7 +26,7 @@ class HotTubController:
     VREF = 3.3
     TEMP_VALUES = [6.8, 23.9, 49.0]
     R_VALUES = [23300, 10080, 3300]
-    TEMP_OFFSET = 4
+    TEMP_OFFSET = 3.0 # Adjusted from 2.6 to correct remaining ~0.7F under-reading
 
     def __init__(self):
         if not HAS_HARDWARE:
@@ -50,6 +50,10 @@ class HotTubController:
 
         # Pre-calculate Steinhart-Hart coefficients
         self.coefficients = self._calculate_coefficients(self.TEMP_VALUES, self.R_VALUES)
+        
+        # Filtering state
+        self.temp_history = {0: [], 1: []}
+        self.history_size = 10
 
     def _calculate_coefficients(self, temp_values, r_values):
         ln_resistances = np.log(r_values)
@@ -70,7 +74,19 @@ class HotTubController:
             temp_kelvin = 1 / (self.coefficients[0] + self.coefficients[1] * ln_resistance + self.coefficients[2] * (ln_resistance ** 3))
             temp_celsius = temp_kelvin - 273.15
             temp_fahrenheit = (temp_celsius + self.TEMP_OFFSET) * 9/5 + 32
-            return temp_fahrenheit
+            
+            # Simple outlier rejection and moving average
+            history = self.temp_history[sensor]
+            if history:
+                # Reject values that jump more than 5 degrees in one reading (likely noise)
+                if abs(temp_fahrenheit - history[-1]) > 5.0:
+                    return sum(history) / len(history)
+            
+            history.append(temp_fahrenheit)
+            if len(history) > self.history_size:
+                history.pop(0)
+                
+            return sum(history) / len(history)
         except Exception as e:
             print(f"Error reading temperature on sensor {sensor}: {e}")
             return 0.0

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 import httpx
 import os
+import subprocess
 from sqlalchemy.orm import Session
 from ..db.session import SessionLocal
 from ..db.models import Settings
@@ -18,6 +19,21 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@router.get("/logs")
+def get_system_logs(is_admin: bool = True):
+    try:
+        # Fetch last 150 lines to ensure we have enough after filtering
+        cmd = ["journalctl", "-u", "opensoak.service", "-u", "opensoak-frontend.service", "-n", "150", "--no-pager", "-o", "short-iso"]
+        result = subprocess.check_output(cmd).decode("utf-8")
+        
+        # Filter out 200 OK access logs to reduce noise
+        lines = result.split('\n')
+        filtered_lines = [line for line in lines if '" 200 OK"' not in line]
+        
+        return {"logs": "\n".join(filtered_lines[-100:])}
+    except Exception as e:
+        return {"error": str(e), "logs": "Could not fetch system logs. Ensure journalctl is available."}
 
 @router.post("/report-bug")
 async def report_bug(report: BugReport, db: Session = Depends(get_db)):

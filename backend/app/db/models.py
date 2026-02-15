@@ -13,6 +13,7 @@ class Settings(Base):
     hysteresis_lower = Column(Float, default=1.0)
     max_temp_limit = Column(Float, default=110.0)
     location = Column(String, default="90210") # Zip code for weather
+    weather_provider = Column(String, default="accuweather") # accuweather, weather.com, wunderground
     default_soak_duration = Column(Integer, default=60)
     default_soak_temp = Column(Float, default=104.0)
     
