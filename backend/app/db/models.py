@@ -57,6 +57,8 @@ class Schedule(Base):
     days_of_week = Column(String) # "0,1,2,3,4,5,6" (Monday=0)
     target_temp = Column(Float, nullable=True)
     light_on = Column(Boolean, default=True) # User choice for soak cycles
+    jet_on = Column(Boolean, default=False)   # User choice for soak cycles
+    ozone_on = Column(Boolean, default=False) # User choice for soak cycles
     active = Column(Boolean, default=True)
 
 class SystemState(Base):
@@ -72,3 +74,7 @@ class SystemState(Base):
     # Manual Soak
     manual_soak_active = Column(Boolean, default=False)
     manual_soak_expires = Column(DateTime(timezone=True), nullable=True)
+
+    # Scheduled Session Tracking
+    scheduled_session_active = Column(Boolean, default=False)
+    scheduled_session_expires = Column(DateTime(timezone=True), nullable=True)

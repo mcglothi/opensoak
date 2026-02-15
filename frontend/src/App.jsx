@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
   Thermometer,
@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Settings as SettingsIcon,
   Clock,
+  Play,
+  Sparkles,
   ChevronUp,
   ChevronDown,
   Sun,
@@ -33,6 +35,12 @@ import {
 const API_BASE = `${window.location.protocol}//${window.location.host}/api`;
 const ADMIN_KEY_FRONTEND_PLACEHOLDER = "supersecretadminkey";
 
+// Defensive localStorage
+const safeStorage = {
+  getItem: (key) => { try { return localStorage.getItem(key); } catch (e) { return null; } },
+  setItem: (key, val) => { try { localStorage.setItem(key, val); } catch (e) {} }
+};
+
 function App() {
   const [status, setStatus] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -55,32 +63,36 @@ function App() {
   const [lastValidTemp, setLastValidTemp] = useState("--");
 
   // Refs
-  const statusRef = React.useRef(null);
-  const flyoutRef = React.useRef(null);
-  const lastTimerAdjRef = React.useRef(0);
-  const optimisticExpiryRef = React.useRef(null);
-  const lastTempAdjRef = React.useRef(0);
-  const optimisticTempRef = React.useRef(null);
-  const lastControlAdjRef = React.useRef({});
-  const optimisticControlsRef = React.useRef({});
+  const statusRef = useRef(null);
+  const flyoutRef = useRef(null);
+  const lastTimerAdjRef = useRef(0);
+  const optimisticExpiryRef = useRef(null);
+  const lastTempAdjRef = useRef(0);
+  const optimisticTempRef = useRef(null);
+  const lastControlAdjRef = useRef({});
+  const optimisticControlsRef = useRef({});
 
   // Initialize Role
   const [role, setRole] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlRole = params.get('role');
-    if (urlRole && ['viewer', 'user', 'admin'].includes(urlRole)) return urlRole;
-    return localStorage.getItem('opensoak_role') || 'user';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlRole = params.get('role');
+      if (urlRole && ['viewer', 'user', 'admin'].includes(urlRole)) return urlRole;
+      return safeStorage.getItem('opensoak_role') || 'user';
+    } catch (e) { return 'user'; }
   });
 
   // Role Persistence
   useEffect(() => {
-    localStorage.setItem('opensoak_role', role);
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('role')) {
-      const url = new URL(window.location);
-      url.searchParams.delete('role');
-      window.history.replaceState({}, '', url);
-    }
+    safeStorage.setItem('opensoak_role', role);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('role')) {
+        const url = new URL(window.location);
+        url.searchParams.delete('role');
+        window.history.replaceState({}, '', url);
+      }
+    } catch (e) {}
   }, [role]);
 
   // Click-outside for Kiosk Flyout
@@ -91,13 +103,14 @@ function App() {
         setShowKioskControls(false);
       }
     };
-    window.addEventListener('mousedown', handleGlobalClick);
-    return () => window.removeEventListener('mousedown', handleGlobalClick);
+    // Use 'click' for better compatibility across TV browsers
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
   }, [showKioskControls]);
 
   // Temp sync
   useEffect(() => {
-    if (status?.current_temp > 0) {
+    if (status && status.current_temp > 0) {
       setLastValidTemp(status.current_temp.toFixed(1));
     }
   }, [status]);
@@ -107,24 +120,27 @@ function App() {
   const fetchData = async () => {
     try {
       const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes] = await Promise.all([
-        axios.get(`${API_BASE}/status/`),
-        axios.get(`${API_BASE}/settings/`),
-        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`),
-        axios.get(`${API_BASE}/schedules/`),
-        axios.get(`${API_BASE}/status/logs`),
-        axios.get(`${API_BASE}/status/weather`),
-        axios.get(`${API_BASE}/status/energy`)
+        axios.get(`${API_BASE}/status/`).catch(e => ({ data: null })),
+        axios.get(`${API_BASE}/settings/`).catch(e => ({ data: null })),
+        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`).catch(e => ({ data: [] })),
+        axios.get(`${API_BASE}/schedules/`).catch(e => ({ data: [] })),
+        axios.get(`${API_BASE}/status/logs`).catch(e => ({ data: [] })),
+        axios.get(`${API_BASE}/status/weather`).catch(e => ({ data: null })),
+        axios.get(`${API_BASE}/status/energy`).catch(e => ({ data: null }))
       ]);
       
       const newStatus = statusRes.data;
       const newSettings = settingsRes.data;
 
+      if (!newStatus) return; // Backend not ready
+
       if (Date.now() - lastTimerAdjRef.current < 4000 && optimisticExpiryRef.current) {
         if (newStatus.desired_state) newStatus.desired_state.manual_soak_expires = optimisticExpiryRef.current;
       }
       if (Date.now() - lastTempAdjRef.current < 4000 && optimisticTempRef.current !== null) {
-        newSettings.set_point = optimisticTempRef.current;
+        if (newSettings) newSettings.set_point = optimisticTempRef.current;
       }
+      
       Object.keys(lastControlAdjRef.current).forEach(key => {
         if (Date.now() - lastControlAdjRef.current[key] < 4000) {
           const optVal = optimisticControlsRef.current[key];
@@ -148,23 +164,25 @@ function App() {
       if (energyRes.data && !energyRes.data.error) setEnergyData(energyRes.data);
 
       if (role === 'admin') {
-        const sysLogsRes = await axios.get(`${API_BASE}/support/logs`, { headers: getAuthHeaders() });
-        if (sysLogsRes.data?.logs) setSystemLogs(sysLogsRes.data.logs);
+        const sysLogsRes = await axios.get(`${API_BASE}/support/logs`, { headers: getAuthHeaders() }).catch(e => ({ data: {} }));
+        if (sysLogsRes.data && sysLogsRes.data.logs) setSystemLogs(sysLogsRes.data.logs);
       }
       
-      const historyData = Array.isArray(historyRes.data) ? historyRes.data : [];
-      setHistory(historyData.map(h => ({
-        ...h,
-        time: h.timestamp ? new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"
-      })).reverse());
+      if (Array.isArray(historyRes.data)) {
+        setHistory(historyRes.data.map(h => ({
+          ...h,
+          time: h.timestamp ? new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"
+        })).reverse());
+      }
       
       setError(null);
       setLoading(false);
 
-      if (weatherRes.data?.hourly && schedulesRes.data?.length > 0) {
+      // Weather Warning
+      if (weatherRes.data && weatherRes.data.hourly && schedulesRes.data && schedulesRes.data.length > 0) {
         const warnings = [];
         const now = new Date();
-        const activeSchedules = (Array.isArray(schedulesRes.data) ? schedulesRes.data : []).filter(s => s.active);
+        const activeSchedules = schedulesRes.data.filter(s => s.active);
         activeSchedules.forEach(sched => {
           if (!sched.start_time || !sched.days_of_week) return;
           const [startH] = sched.start_time.split(':').map(Number);
@@ -185,6 +203,7 @@ function App() {
         } else { setWeatherWarning(null); }
       }
     } catch (err) {
+      console.error(err);
       setError(`Connection Error: ${err.message}`);
     }
   };
@@ -196,15 +215,27 @@ function App() {
   }, [historyLimit, isEditingTemp, role]);
 
   useEffect(() => {
-    if (status?.desired_state?.manual_soak_active && status?.desired_state?.manual_soak_expires) {
+    const hasManual = status?.desired_state?.manual_soak_active && status?.desired_state?.manual_soak_expires;
+    const hasScheduled = status?.desired_state?.scheduled_session_active && status?.desired_state?.scheduled_session_expires;
+
+    if (hasManual || hasScheduled) {
       const calculate = () => {
         const now = new Date();
-        const expires = new Date(status.desired_state.manual_soak_expires);
-        const diff = expires - now;
+        const expiryStr = hasManual ? status.desired_state.manual_soak_expires : status.desired_state.scheduled_session_expires;
+        const expires = new Date(expiryStr);
+        const diff = expires.getTime() - now.getTime();
+        
         if (diff <= 0) { setTimeLeft(null); return false; }
-        const mins = Math.floor(diff / 60000);
+        const hrs = Math.floor(diff / 3600000);
+        const mins = Math.floor((diff % 3600000) / 60000);
         const secs = Math.floor((diff % 60000) / 1000);
-        setTimeLeft(`${mins}:${secs < 10 ? '0' : ''}${secs}`);
+        
+        let timeStr = "";
+        if (hrs > 0) timeStr += `${hrs}:`;
+        timeStr += `${mins < 10 && hrs > 0 ? '0' : ''}${mins}:`;
+        timeStr += `${secs < 10 ? '0' : ''}${secs}`;
+        
+        setTimeLeft(timeStr);
         return true;
       };
       calculate();
@@ -225,11 +256,11 @@ function App() {
     });
     try {
       await axios.post(`${API_BASE}/control/`, { [key]: val }, { headers: getAuthHeaders() });
-    } catch { delete optimisticControlsRef.current[key]; fetchData(); }
+    } catch (e) { delete optimisticControlsRef.current[key]; fetchData(); }
   };
 
   const updateSetPoint = async (delta) => {
-    if (role === 'viewer') return;
+    if (role === 'viewer' || !settings) return;
     lastTempAdjRef.current = Date.now();
     const newTemp = Math.round((settings.set_point + delta) * 2) / 2;
     optimisticTempRef.current = newTemp;
@@ -237,20 +268,21 @@ function App() {
     setTempInput(newTemp.toString());
     try {
       await axios.post(`${API_BASE}/settings/`, { set_point: newTemp }, { headers: getAuthHeaders() });
-    } catch { lastTempAdjRef.current = 0; fetchData(); }
+    } catch (e) { lastTempAdjRef.current = 0; fetchData(); }
   };
 
   const adjustTimer = async (minutes) => {
+    if (!status || !status.desired_state) return;
     lastTimerAdjRef.current = Date.now();
     setStatus(prev => {
-      if (!prev || !prev.desired_state?.manual_soak_expires) return prev;
+      if (!prev || !prev.desired_state || !prev.desired_state.manual_soak_expires) return prev;
       const newExpiry = new Date(new Date(prev.desired_state.manual_soak_expires).getTime() + (minutes * 60000)).toISOString();
       optimisticExpiryRef.current = newExpiry;
       return { ...prev, desired_state: { ...prev.desired_state, manual_soak_expires: newExpiry }};
     });
     try {
       await axios.post(`${API_BASE}/control/adjust-soak-timer`, { minutes }, { headers: getAuthHeaders() });
-    } catch { lastTimerAdjRef.current = 0; fetchData(); }
+    } catch (e) { lastTimerAdjRef.current = 0; fetchData(); }
   };
 
   const startSoak = async (temp, duration) => {
@@ -267,6 +299,20 @@ function App() {
     } catch (err) { alert(err.message); }
   };
 
+  const cancelScheduledSession = async () => {
+    try {
+      await axios.post(`${API_BASE}/control/cancel-scheduled-session`, {}, { headers: getAuthHeaders() });
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
+  const triggerSchedule = async (id) => {
+    try {
+      await axios.post(`${API_BASE}/control/trigger-schedule/${id}`, {}, { headers: getAuthHeaders() });
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
   const masterShutdown = async () => {
     if (!window.confirm("Master Shutdown?")) return;
     try { await axios.post(`${API_BASE}/control/master-shutdown`, {}, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
@@ -277,15 +323,27 @@ function App() {
   };
 
   const updateRestTemp = async (delta) => {
+    if (!settings) return;
     const newTemp = Math.round((settings.default_rest_temp + delta) * 2) / 2;
     setSettings(prev => ({ ...prev, default_rest_temp: newTemp }));
-    try { await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() }); } catch { fetchData(); }
+    try { await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() }); } catch (e) { fetchData(); }
   };
 
   const createSchedule = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const data = { name: fd.get('name'), type: fd.get('type'), start_time: fd.get('start'), end_time: fd.get('end'), target_temp: fd.get('temp') ? parseFloat(fd.get('temp')) : null, days_of_week: selectedDays.join(','), active: true };
+    const data = { 
+      name: fd.get('name'), 
+      type: fd.get('type'), 
+      start_time: fd.get('start'), 
+      end_time: fd.get('end'), 
+      target_temp: fd.get('temp') ? parseFloat(fd.get('temp')) : null, 
+      light_on: fd.get('light_on') === 'on',
+      jet_on: fd.get('jet_on') === 'on',
+      ozone_on: fd.get('ozone_on') === 'on',
+      days_of_week: selectedDays.join(','), 
+      active: true 
+    };
     try {
       if (editingSchedule) await axios.put(`${API_BASE}/schedules/${editingSchedule.id}`, data, { headers: getAuthHeaders() });
       else await axios.post(`${API_BASE}/schedules/`, data, { headers: getAuthHeaders() });
@@ -313,10 +371,12 @@ function App() {
 
   const formatTime = (timeStr) => {
     if (!timeStr) return "";
-    const [h, m] = timeStr.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const hour = h % 12 || 12;
-    return `${hour}:${m < 10 ? '0' : ''}${m} ${ampm}`;
+    try {
+      const [h, m] = timeStr.split(':').map(Number);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hour = h % 12 || 12;
+      return `${hour}:${m < 10 ? '0' : ''}${m} ${ampm}`;
+    } catch (e) { return timeStr; }
   };
 
   // Calculate Next Scheduled Run
@@ -331,19 +391,21 @@ function App() {
 
     schedules.forEach(s => {
       if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak') return;
-      const [h, m] = s.start_time.split(':').map(Number);
-      const sDays = String(s.days_of_week).split(',').map(Number);
-      const sTime = h * 60 + m;
+      try {
+        const [h, m] = s.start_time.split(':').map(Number);
+        const sDays = String(s.days_of_week).split(',').map(Number);
+        const sTime = h * 60 + m;
 
-      sDays.forEach(day => {
-        let dayDiff = day - currentDay;
-        if (dayDiff < 0 || (dayDiff === 0 && sTime <= currentTime)) dayDiff += 7;
-        const totalDiff = dayDiff * 1440 + (sTime - currentTime);
-        if (totalDiff < minDiff) {
-          minDiff = totalDiff;
-          next = { ...s, dayDiff };
-        }
-      });
+        sDays.forEach(day => {
+          let dayDiff = day - currentDay;
+          if (dayDiff < 0 || (dayDiff === 0 && sTime <= currentTime)) dayDiff += 7;
+          const totalDiff = dayDiff * 1440 + (sTime - currentTime);
+          if (totalDiff < minDiff) {
+            minDiff = totalDiff;
+            next = { ...s, dayDiff };
+          }
+        });
+      } catch (e) {}
     });
 
     if (!next) return null;
@@ -356,7 +418,7 @@ function App() {
   if (error) return <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-4 text-center"><Zap className="text-red-500 mb-4 w-12 h-12" /><h1 className="text-xl font-bold mb-2">Error</h1><p className="text-slate-400 mb-6">{error}</p><button onClick={() => { setError(null); setLoading(true); fetchData(); }} className="bg-blue-600 px-6 py-2 rounded-full font-bold">Retry</button></div>;
 
   const currentTemp = lastValidTemp;
-  const isHeaterOn = status?.actual_relay_state?.heater;
+  const isHeaterOn = status && status.actual_relay_state && status.actual_relay_state.heater;
   const nextRunText = getNextRun();
 
   if (role === 'viewer') {
@@ -366,7 +428,7 @@ function App() {
         <header className="flex justify-between items-start relative z-20 mb-auto">
           <div className="flex flex-col">
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-white to-emerald-400 bg-clip-text text-transparent leading-none">OpenSoak</h1>
-            <div className={`mt-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border w-fit ${status?.safety_status === 'OK' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'}`}>SYSTEM: {status?.safety_status}</div>
+            <div className={`mt-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border w-fit ${status && status.safety_status === 'OK' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'}`}>SYSTEM: {status ? status.safety_status : 'UNKNOWN'}</div>
           </div>
           <div className="flex flex-col items-end">
             <span className="text-3xl md:text-5xl font-black tabular-nums">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}</span>
@@ -398,14 +460,14 @@ function App() {
         </main>
         <footer className="grid grid-cols-2 md:grid-cols-4 gap-6 relative z-20 mt-auto">
           <div className="glass-panel p-6 rounded-3xl flex items-center gap-4">
-            {weather?.current && <>
+            {weather && weather.current && <>
               <div className="text-blue-400 scale-125">{React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 40 })}</div>
               <div className="flex flex-col leading-tight"><span className="text-2xl font-black text-white">{weather.current.temperature_2m?.toFixed(0)}°</span><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{weather.city}</span></div>
             </>}
           </div>
-          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex flex-col"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Maintain</span><span className="text-2xl font-black text-slate-300">{settings?.set_point}°F</span></div><Thermometer className="text-slate-700" size={24} /></div>
-          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${status?.actual_relay_state?.jet_pump ? 'bg-blue-500 animate-pulse' : 'bg-white/10'}`}></div><span className="text-lg font-black text-slate-300 uppercase">Jets</span></div><Wind className="text-slate-700" size={24} /></div>
-          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${status?.actual_relay_state?.light ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-white/10'}`}></div><span className="text-lg font-black text-slate-300 uppercase">Lights</span></div><Lightbulb className="text-slate-700" size={24} /></div>
+          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex flex-col"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Maintain</span><span className="text-2xl font-black text-slate-300">{settings ? settings.set_point : '--'}°F</span></div><Thermometer className="text-slate-700" size={24} /></div>
+          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${status && status.actual_relay_state && status.actual_relay_state.jet_pump ? 'bg-blue-500 animate-pulse' : 'bg-white/10'}`}></div><span className="text-lg font-black text-slate-300 uppercase">Jets</span></div><Wind className="text-slate-700" size={24} /></div>
+          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${status && status.actual_relay_state && status.actual_relay_state.light ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-white/10'}`}></div><span className="text-lg font-black text-slate-300 uppercase">Lights</span></div><Lightbulb className="text-slate-700" size={24} /></div>
         </footer>
         <div ref={flyoutRef} className={`fixed right-0 top-1/2 -translate-y-1/2 z-50 transition-transform duration-500 flex items-center ${showKioskControls ? 'translate-x-0' : 'translate-x-[calc(100%-12px)]'}`}>
           <button onClick={(e) => { e.stopPropagation(); setShowKioskControls(!showKioskControls); }} className="h-24 w-3 glass-panel rounded-l-full opacity-30 hover:opacity-100 transition-opacity"></button>
@@ -437,8 +499,8 @@ function App() {
             <div className="flex flex-col min-w-0">
               <h1 className="text-xl sm:text-2xl lg:text-5xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-white to-emerald-400 bg-clip-text text-transparent leading-tight drop-shadow-sm">OpenSoak</h1>
               <div className="hidden lg:flex items-center gap-2 mt-0.5">
-                <div className={`px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest flex items-center border ${status?.safety_status === 'OK' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'}`}>
-                  <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 mr-1" /> {status?.safety_status}
+                <div className={`px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-widest flex items-center border ${status && status.safety_status === 'OK' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'}`}>
+                  <ShieldCheck className="w-2.5 h-2.5 md:w-3 md:h-3 mr-1" /> {status ? status.safety_status : 'UNKNOWN'}
                 </div>
               </div>
             </div>
@@ -449,8 +511,8 @@ function App() {
               <span className="text-[10px] sm:text-xs md:text-2xl font-black text-slate-100 tabular-nums">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}</span>
             </div>
             <div className="w-px h-5 md:h-8 bg-white/10"></div>
-            {weather?.current && (
-              <a href={getWeatherLink()} target="_blank" rel="noopener noreferrer" className="flex items-center px-2 sm:px-3 md:px-6 hover:bg-white/5 transition-colors group">
+            {weather && weather.current && (
+              <a href={getWeatherLink()} target="_blank" rel="noopener noreferrer" className="flex items-center px-2 sm:px-3 md:px-6 hover:bg-white/5 transition-colors group" title="View detailed local weather forecast">
                 <div className="scale-50 sm:scale-75 md:scale-100 group-hover:scale-110 transition-transform flex-shrink-0">{React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 36 })}</div>
                 <div className="flex flex-col leading-tight -ml-1 md:ml-0">
                   <span className="text-[10px] sm:text-xs md:text-2xl font-black text-white">{weather.current.temperature_2m?.toFixed(0)}°</span>
@@ -459,11 +521,11 @@ function App() {
               </a>
             )}
             <div className="w-px h-5 md:h-8 bg-white/10"></div>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="bg-transparent text-[9px] sm:text-[10px] md:text-base text-slate-400 px-1.5 sm:px-2 md:px-4 outline-none cursor-pointer font-black uppercase tracking-tighter md:tracking-widest hover:text-white">
+            <select value={role} onChange={(e) => setRole(e.target.value)} className="bg-transparent text-[9px] sm:text-[10px] md:text-base text-slate-400 px-1.5 sm:px-2 md:px-4 outline-none cursor-pointer font-black uppercase tracking-tighter md:tracking-widest hover:text-white" title="Switch between View, User, and Admin modes">
               <option value="viewer" className="bg-slate-900">View</option><option value="user" className="bg-slate-900">User</option><option value="admin" className="bg-slate-900">Adm</option>
             </select>
             <div className="w-px h-5 md:h-8 bg-white/10"></div>
-            <button onClick={() => fetchData()} className="flex items-center justify-center aspect-square h-full px-2 sm:px-3 md:px-4 text-slate-500 hover:text-blue-400 group flex-shrink-0"><HelpCircle className="w-4 h-4 md:w-7 md:h-7 group-hover:scale-110 transition-transform" /></button>
+            <button onClick={() => fetchData()} className="flex items-center justify-center aspect-square h-full px-2 sm:px-3 md:px-4 text-slate-500 hover:text-blue-400 group flex-shrink-0" title="Refresh all system data manually"><HelpCircle className="w-4 h-4 md:w-7 md:h-7 group-hover:scale-110 transition-transform" /></button>
           </div>
         </div>
       </header>
@@ -490,25 +552,25 @@ function App() {
                   {role !== 'viewer' && (
                     <div className="flex items-center space-x-3">
                       <div className="flex flex-col space-y-2">
-                        <button onClick={() => adjustTimer(1)} className="p-3 glass-inset hover:bg-white/5 rounded-xl text-slate-300 active:scale-90 transition"><ChevronUp size={24} /></button>
-                        <button onClick={() => adjustTimer(-1)} className="p-3 glass-inset hover:bg-white/5 rounded-xl text-slate-300 active:scale-90 transition"><ChevronDown size={24} /></button>
+                        <button onClick={() => adjustTimer(1)} className="p-3 glass-inset hover:bg-white/5 rounded-xl text-slate-300 active:scale-90 transition" title="Add 1 minute to session"><ChevronUp size={24} /></button>
+                        <button onClick={() => adjustTimer(-1)} className="p-3 glass-inset hover:bg-white/5 rounded-xl text-slate-300 active:scale-90 transition" title="Subtract 1 minute from session"><ChevronDown size={24} /></button>
                       </div>
-                      <button onClick={() => adjustTimer(15)} className="h-full px-5 py-4 bg-blue-600/80 hover:bg-blue-600 backdrop-blur-xl text-white text-sm font-black uppercase rounded-2xl transition shadow-xl active:scale-95 border border-white/10">+15m</button>
+                      <button onClick={() => adjustTimer(15)} className="h-full px-5 py-4 bg-blue-600/80 hover:bg-blue-600 backdrop-blur-xl text-white text-sm font-black uppercase rounded-2xl transition shadow-xl active:scale-95 border border-white/10" title="Quick add 15 minutes to session">+15m</button>
                     </div>
                   )}
                 </div>
               )}
             </div>
             <div className="mt-10 flex flex-wrap items-center gap-6 md:gap-0 md:space-x-8">
-              {status?.desired_state?.manual_soak_active && (
+              {status && status.desired_state && status.desired_state.manual_soak_active && (
                 <>
                   <div className="flex flex-col group relative">
                     <span className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em]">Target Temp</span>
                     <div className="flex items-center space-x-5 mt-1">
-                      <input type="number" step="0.5" value={tempInput} onFocus={() => setIsEditingTemp(true)} onChange={(e) => setTempInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { updateSetPoint(parseFloat(tempInput) - settings.set_point); setIsEditingTemp(false); e.target.blur(); }}} onBlur={() => { updateSetPoint(parseFloat(tempInput) - settings.set_point); setIsEditingTemp(false); }} className="glass-inset text-4xl font-black text-blue-400 w-32 px-3 py-2 rounded-2xl outline-none shadow-inner" />
+                      <input type="number" step="0.5" value={tempInput} onFocus={() => setIsEditingTemp(true)} onChange={(e) => setTempInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { updateSetPoint(parseFloat(tempInput) - (settings ? settings.set_point : 0)); setIsEditingTemp(false); e.target.blur(); }}} onBlur={() => { updateSetPoint(parseFloat(tempInput) - (settings ? settings.set_point : 0)); setIsEditingTemp(false); }} className="glass-inset text-4xl font-black text-blue-400 w-32 px-3 py-2 rounded-2xl outline-none shadow-inner" title="Enter specific target temperature" />
                       <div className="flex space-x-2">
-                        <button onClick={() => updateSetPoint(0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-125"><ChevronUp /></button>
-                        <button onClick={() => updateSetPoint(-0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-125"><ChevronDown /></button>
+                        <button onClick={() => updateSetPoint(0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-125" title="Increase target 0.5°F"><ChevronUp /></button>
+                        <button onClick={() => updateSetPoint(-0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-125" title="Decrease target 0.5°F"><ChevronDown /></button>
                       </div>
                     </div>
                   </div>
@@ -517,40 +579,51 @@ function App() {
               )}
               <div className="flex flex-col group relative">
                 <span className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em]">Rest Temp</span>
-                <div className="flex items-center space-x-5 mt-1"><span className="text-3xl font-black text-slate-400">{settings?.default_rest_temp}°F</span>{role === 'admin' && <div className="flex space-x-2"><button onClick={() => updateRestTemp(0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-110"><ChevronUp /></button><button onClick={() => updateRestTemp(-0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-110"><ChevronDown /></button></div>}</div>
+                <div className="flex items-center space-x-5 mt-1"><span className="text-3xl font-black text-slate-400">{settings ? settings.default_rest_temp : '--'}°F</span>{role === 'admin' && <div className="flex space-x-2"><button onClick={() => updateRestTemp(0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-110" title="Increase resting temperature"><ChevronUp /></button><button onClick={() => updateRestTemp(-0.5)} className="p-2 hover:bg-white/5 rounded-xl transition scale-110" title="Decrease resting temperature"><ChevronDown /></button></div>}</div>
               </div>
               <div className="h-14 w-px bg-white/10 mx-6 hidden md:block"></div>
               <div className="flex flex-col">
                 <span className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em]">Status</span>
-                <div className="flex items-center space-x-4 mt-1"><span className={`text-2xl font-black ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>{isHeaterOn ? 'Heating...' : 'Ready'}</span>{status?.desired_state?.manual_soak_active && <button onClick={cancelSoak} className="flex items-center space-x-3 bg-red-600/80 hover:bg-red-600 backdrop-blur-xl text-white text-sm font-black uppercase px-6 py-4 rounded-[1.5rem] transition shadow-xl active:scale-90"><Zap size={18} className="fill-current" /><span>Stop Session</span></button>}</div>
+                <div className="flex items-center space-x-4 mt-1">
+                  <span className={`text-2xl font-black ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>{isHeaterOn ? 'Heating...' : 'Ready'}</span>
+                  {status?.desired_state?.manual_soak_active ? (
+                    <button onClick={cancelSoak} className="flex items-center space-x-3 bg-red-600/80 hover:bg-red-600 backdrop-blur-xl text-white text-sm font-black uppercase px-6 py-4 rounded-[1.5rem] transition shadow-xl active:scale-90" title="Immediately stop manual session and turn off devices">
+                      <Zap size={18} className="fill-current" /><span>Stop Session</span>
+                    </button>
+                  ) : status?.desired_state?.scheduled_session_active ? (
+                    <button onClick={cancelScheduledSession} className="flex items-center space-x-3 bg-red-600/80 hover:bg-red-600 backdrop-blur-xl text-white text-sm font-black uppercase px-6 py-4 rounded-[1.5rem] transition shadow-xl active:scale-90" title="Override and stop the current automated schedule">
+                      <Clock size={18} /><span>Stop Schedule</span>
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
-            {role !== 'viewer' && !status?.desired_state?.manual_soak_active && (
+            {role !== 'viewer' && (!status || !status.desired_state || !status.desired_state.manual_soak_active) && (
               <div className="mt-8 p-6 glass-inset rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div className="flex items-center space-x-4"><div className={`p-3 rounded-2xl bg-orange-500/10 ${isHeaterOn ? 'animate-pulse' : ''}`}><Zap className="text-orange-400 w-6 h-6" /></div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Soak Now!</h3></div>
                 <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target); startSoak(fd.get('temp'), fd.get('duration')); }} className="flex items-center space-x-4 w-full sm:w-auto">
-                  <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Temp</span><input name="temp" type="number" step="0.5" defaultValue={settings?.default_soak_temp || 104} className="w-20 glass-inset rounded-xl text-sm p-3 text-orange-400 font-black outline-none" /></div>
-                  <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Min</span><input name="duration" type="number" defaultValue={settings?.default_soak_duration || 60} className="w-20 glass-inset rounded-xl text-sm p-3 text-slate-300 font-black outline-none" /></div>
-                  <button type="submit" className="flex-1 sm:flex-none h-12 bg-orange-600/80 hover:bg-orange-600 backdrop-blur-xl text-white text-xs font-black uppercase px-8 rounded-2xl transition shadow-lg active:scale-95">Start Soak!</button>
+                  <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Temp</span><input name="temp" type="number" step="0.5" defaultValue={settings ? settings.default_soak_temp : 104} className="w-20 glass-inset rounded-xl text-sm p-3 text-orange-400 font-black outline-none" title="Set target temperature for this soak" /></div>
+                  <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Min</span><input name="duration" type="number" defaultValue={settings ? settings.default_soak_duration : 60} className="w-20 glass-inset rounded-xl text-sm p-3 text-slate-300 font-black outline-none" title="Set duration in minutes" /></div>
+                  <button type="submit" className="flex-1 sm:flex-none h-12 bg-orange-600/80 hover:bg-orange-600 backdrop-blur-xl text-white text-xs font-black uppercase px-8 rounded-2xl transition shadow-lg active:scale-95" title="Begin a manual soak session immediately">Start Soak!</button>
                 </form>
               </div>
             )}
           </div>
-          <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
-          {weather?.daily && <div className="mt-8 pt-8 border-t border-white/10"><h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest text-center md:text-left">7-Day Forecast</h3><div className="flex lg:grid lg:grid-cols-7 gap-5 overflow-x-auto lg:overflow-visible pb-6 custom-scrollbar">{weather.daily.time.slice(0, 7).map((date, idx) => (<a key={date} href={getWeatherLink()} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 w-32 lg:w-auto flex flex-col items-center p-5 rounded-[2rem] glass-inset shadow-xl transition-all hover:scale-105 hover:bg-white/5"><span className="text-[10px] text-slate-400 uppercase font-black mb-5 tracking-tighter">{new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}</span><div className="mb-5 text-blue-400">{React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 48 })}</div><div className="flex flex-col items-center"><span className="text-2xl font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span><span className="text-sm text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span></div></a>))}</div></div>}
+          <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest" title="Change the timeframe displayed on the graph"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
+          {weather && weather.daily && <div className="mt-8 pt-8 border-t border-white/10"><h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest text-center md:text-left">7-Day Forecast</h3><div className="flex lg:grid lg:grid-cols-7 gap-5 overflow-x-auto lg:overflow-visible pb-6 custom-scrollbar">{weather.daily.time.slice(0, 7).map((date, idx) => (<a key={date} href={getWeatherLink()} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 w-32 lg:w-auto flex flex-col items-center p-5 rounded-[2rem] glass-inset shadow-xl transition-all hover:scale-105 hover:bg-white/5" title={`View details for ${new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'long' })}`}><span className="text-[10px] text-slate-400 uppercase font-black mb-5 tracking-tighter">{new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}</span><div className="mb-5 text-blue-400">{React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 48 })}</div><div className="flex flex-col items-center"><span className="text-2xl font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span><span className="text-sm text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span></div></a>))}</div></div>}
         </div>
 
         <div className="glass-panel rounded-3xl p-8 shadow-xl h-fit">
           <div className="space-y-4">
             <h2 className="text-white text-xl font-bold mb-6 flex items-center uppercase tracking-tighter"><SettingsIcon className="w-5 h-5 mr-2 text-slate-400" /> Device Controls</h2>
-            <StatusIndicator label="Heater" active={status?.actual_relay_state?.heater} color="orange" isLarge={true} icon={<Zap size={20} />} />
-            <ControlToggle label="Jets" icon={<Wind />} active={status?.actual_relay_state?.jet_pump} loading={status?.desired_state?.jet_pump !== status?.actual_relay_state?.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" />
-            <ControlToggle label="Light" icon={<Lightbulb />} active={status?.actual_relay_state?.light} loading={status?.desired_state?.light !== status?.actual_relay_state?.light} onToggle={(v) => toggleControl('light', v)} color="yellow" />
+            <StatusIndicator label="Heater" active={isHeaterOn} color="orange" isLarge={true} icon={<Zap size={20} />} />
+            <ControlToggle label="Jets" icon={<Wind />} active={status && status.actual_relay_state && status.actual_relay_state.jet_pump} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.jet_pump !== status.actual_relay_state.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" />
+            <ControlToggle label="Light" icon={<Lightbulb />} active={status && status.actual_relay_state && status.actual_relay_state.light} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.light !== status.actual_relay_state.light} onToggle={(v) => toggleControl('light', v)} color="yellow" />
             {role === 'admin' && (
               <div className="pt-4 border-t border-white/10 space-y-4">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Administrative</h3>
-                <ControlToggle label="Circ Pump" icon={<Droplets />} active={status?.actual_relay_state?.circ_pump} onToggle={(v) => toggleControl('circ_pump', v)} color="emerald" />
-                <ControlToggle label="Ozone" icon={<Zap />} active={status?.actual_relay_state?.ozone} onToggle={(v) => toggleControl('ozone', v)} color="blue" />
+                <ControlToggle label="Circ Pump" icon={<Droplets />} active={status && status.actual_relay_state && status.actual_relay_state.circ_pump} onToggle={(v) => toggleControl('circ_pump', v)} color="emerald" />
+                <ControlToggle label="Ozone" icon={<Zap />} active={status && status.actual_relay_state && status.actual_relay_state.ozone} onToggle={(v) => toggleControl('ozone', v)} color="blue" />
                 <button onClick={masterShutdown} className="w-full p-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-500 font-black uppercase tracking-tighter hover:bg-red-500/20 transition-all backdrop-blur-xl active:scale-95 shadow-xl">Master Shutdown</button>
               </div>
             )}
@@ -564,14 +637,86 @@ function App() {
               </div>
               <div className="mt-8 p-6 glass-inset rounded-3xl">
                 <h3 className="text-base font-black text-slate-500 uppercase mb-6 tracking-widest">Schedules</h3>
-                <div className="space-y-4 mb-6">{schedules.map(s => (<div key={s.id} className="flex justify-between items-center group"><div className="flex flex-col"><span className="text-slate-100 font-black text-base">{s.name} <span className="text-[10px] text-slate-500 font-normal italic lowercase opacity-60">({s.type})</span></span><span className="text-slate-400 font-black mt-1 text-[10px] tracking-widest">{formatTime(s.start_time)} - {formatTime(s.end_time)}</span></div>{role === 'admin' && <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-all"><button onClick={() => { setEditingSchedule(s); setSelectedDays(String(s.days_of_week).split(',').map(Number)); }} className="text-blue-400 hover:text-blue-200 transition-colors">✎</button><button onClick={() => deleteSchedule(s.id)} className="text-red-400 hover:text-red-200 transition-colors">✕</button></div>}</div>))}</div>
+                <div className="space-y-6 mb-6">{schedules.map(s => (
+                  <div key={s.id} className="glass-panel p-5 rounded-[1.5rem] border-white/5 hover:bg-white/5 transition-all group relative overflow-hidden">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-3 flex-1 min-w-0">
+                        <span className="text-slate-100 font-black text-xl tracking-tight leading-tight">{s.name}</span>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex gap-2 items-center">
+                            {Boolean(s.jet_on) && <div className="flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/20" title="Schedule includes Jets"><Wind size={14} className="text-blue-400" /><span className="text-[9px] font-black text-blue-400 uppercase">Jets</span></div>}
+                            {Boolean(s.light_on) && <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded-lg border border-yellow-500/20" title="Schedule includes Light"><Lightbulb size={14} className="text-yellow-400" /><span className="text-[9px] font-black text-yellow-400 uppercase">Light</span></div>}
+                            {Boolean(s.ozone_on) && <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20" title="Schedule includes Ozone"><Sparkles size={14} className="text-emerald-400" /><span className="text-[9px] font-black text-emerald-400 uppercase">Ozone</span></div>}
+                            {s.type === 'soak' && s.target_temp && (
+                              <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/10" title="Target temperature for this soak">
+                                <Thermometer size={14} className="text-blue-400" />
+                                <span className="text-[10px] font-black text-slate-300 tabular-nums">{s.target_temp}°F</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="h-4 w-px bg-white/10"></div>
+                          <span className="text-slate-400 font-black text-xs tracking-[0.1em] uppercase">{formatTime(s.start_time)} - {formatTime(s.end_time)}</span>
+                          <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest opacity-40 ml-auto">[{s.type}]</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 items-start ml-6">
+                        <button onClick={() => triggerSchedule(s.id)} className="p-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/20 transition-all shadow-lg active:scale-90" title="Run/Resume Now">
+                          <Play size={20} fill="currentColor" />
+                        </button>
+                        {role === 'admin' && (
+                          <div className="flex flex-col gap-2">
+                            <button onClick={() => { setEditingSchedule(s); setSelectedDays(String(s.days_of_week).split(',').map(Number)); }} className="p-2 text-blue-400 hover:text-blue-200 transition-colors" title="Edit schedule details">✎</button>
+                            <button onClick={() => deleteSchedule(s.id)} className="p-2 text-red-400 hover:text-red-200 transition-colors" title="Permanently delete this schedule">✕</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}</div>
                 {role === 'admin' && (
-                  <form onSubmit={createSchedule} className="pt-4 border-t border-white/5 space-y-4">
-                    <div className="flex justify-between items-center"><span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">{editingSchedule ? 'Edit Cycle' : 'Add Cycle'}</span>{editingSchedule && <button type="button" onClick={() => setEditingSchedule(null)} className="text-[8px] text-red-500 font-black uppercase tracking-widest hover:text-red-400 transition-colors">Cancel</button>}</div>
+                  <form key={editingSchedule ? `edit-${editingSchedule.id}` : 'new-schedule'} onSubmit={createSchedule} className="pt-8 border-t border-white/10 space-y-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-base font-black text-slate-500 uppercase tracking-widest">
+                        {editingSchedule ? 'Edit Session' : 'Add Session'}
+                      </h3>
+                      {editingSchedule && <button type="button" onClick={() => setEditingSchedule(null)} className="text-xs text-red-500 font-black uppercase tracking-widest hover:text-red-400 transition-colors border-b border-red-500/20 pb-0.5">Cancel</button>}
+                    </div>
                     <div className="space-y-1"><label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Schedule Name</label><input name="name" defaultValue={editingSchedule?.name} placeholder="Morning Soak" required className="w-full glass-inset p-3 rounded-xl text-sm outline-none focus:border-blue-500 transition shadow-inner font-bold" /></div>
                     <div className="flex justify-between gap-1">{['M','T','W','T','F','S','S'].map((l, i) => { const dayVal = (i + 1) % 7; return (<button key={i} type="button" onClick={() => toggleDay(dayVal)} className={`w-7 h-7 rounded-full text-[10px] font-black transition-all ${selectedDays.includes(dayVal) ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30 scale-110' : 'glass-inset text-slate-600'}`}>{l}</button>); })}</div>
                     <div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Type</label><select name="type" defaultValue={editingSchedule?.type || 'soak'} className="w-full glass-inset p-3 rounded-xl text-[10px] bg-slate-900 font-black outline-none"><option value="soak">Soak</option><option value="clean">Clean</option><option value="ozone">Ozone</option></select></div><div className="space-y-1"><label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Temp</label><input name="temp" type="number" step="0.5" defaultValue={editingSchedule?.target_temp} placeholder="°F" className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" /></div></div>
-                    <div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Start</label><input name="start" type="time" defaultValue={editingSchedule?.start_time || "18:00"} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" /></div><div className="space-y-1"><label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End</label><input name="end" type="time" defaultValue={editingSchedule?.end_time || "20:00"} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" /></div></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Start</label>
+                        <input name="start" type="time" defaultValue={editingSchedule?.start_time || "18:00"} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End</label>
+                        <input name="end" type="time" defaultValue={editingSchedule?.end_time || "20:00"} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center px-2 py-2 glass-inset rounded-xl">
+                      <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Initial State</span>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input type="checkbox" name="jet_on" defaultChecked={editingSchedule?.jet_on} className="sr-only peer" />
+                          <div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4 relative"></div>
+                          <span className="text-[8px] font-black uppercase text-slate-400 peer-checked:text-white">Jets</span>
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input type="checkbox" name="light_on" defaultChecked={editingSchedule?.light_on ?? true} className="sr-only peer" />
+                          <div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:bg-yellow-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4 relative"></div>
+                          <span className="text-[8px] font-black uppercase text-slate-400 peer-checked:text-white">Light</span>
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer">
+                          <input type="checkbox" name="ozone_on" defaultChecked={editingSchedule ? editingSchedule.ozone_on : false} className="sr-only peer" />
+                          <div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4 relative"></div>
+                          <Sparkles size={12} className="text-slate-400 peer-checked:text-emerald-400 transition-colors" />
+                          <span className="text-[8px] font-black uppercase text-slate-400 peer-checked:text-white">Ozone</span>
+                        </label>
+                      </div>
+                    </div>
+
                     <button type="submit" className="w-full py-3 bg-blue-600/80 hover:bg-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95">{editingSchedule ? 'Save Changes' : 'Create Schedule'}</button>
                   </form>
                 )}
@@ -583,18 +728,21 @@ function App() {
             <div className="mt-8 p-6 glass-inset rounded-3xl shadow-xl">
               <h3 className="text-base font-black text-slate-500 uppercase mb-6 tracking-widest flex items-center"><SettingsIcon size={16} className="mr-2" /> System Settings</h3>
               <div className="space-y-6">
-                <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Weather Location</label><input defaultValue={settings?.location} onBlur={(e) => updateLocation(e.target.value)} className="w-full glass-inset text-base p-4 rounded-xl outline-none focus:border-blue-500 transition shadow-inner font-bold" /></div>
-                <div className="grid grid-cols-2 gap-4"><div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Soak Min</label><input type="number" defaultValue={settings?.default_soak_duration} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { default_soak_duration: parseInt(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl outline-none font-bold" /></div><div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Limit °F</label><input type="number" defaultValue={settings?.max_temp_limit} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { max_temp_limit: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl text-red-400 outline-none font-black" /></div></div>
-                <div className="pt-6 border-t border-white/5 space-y-6">
-                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label><input type="number" step="0.01" defaultValue={settings?.kwh_cost} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-black" /></div>
-                  <div className="grid grid-cols-2 gap-4">{[{l:"Heater Watts",k:"heater_watts"},{l:"Circ Watts",k:"circ_pump_watts"},{l:"Jet Watts",k:"jet_pump_watts"},{l:"Light Watts",k:"light_watts"},{l:"Ozone Watts",k:"ozone_watts"}].map(p => (<div key={p.k} className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter truncate">{p.l}</label><input type="number" defaultValue={settings?.[p.k]} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.k]: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-bold" /></div>))}</div>
+                <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Weather Location</label><input defaultValue={settings?.location} onBlur={(e) => updateLocation(e.target.value)} className="w-full glass-inset text-base p-4 rounded-xl outline-none focus:border-blue-500 transition shadow-inner font-bold" title="Enter Zip Code for local weather and forecasts" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Soak Min</label><input type="number" defaultValue={settings?.default_soak_duration} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { default_soak_duration: parseInt(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl outline-none font-bold" title="Default duration for manual soak sessions" /></div>
+                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Limit °F</label><input type="number" defaultValue={settings?.max_temp_limit} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { max_temp_limit: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl text-red-400 outline-none font-black" title="Maximum allowed temperature for safety (Master Cutoff)" /></div>
                 </div>
-                <button onClick={async () => { if (confirm("Update from GitHub?")) { try { await axios.post(`${API_BASE}/control/update-system`, {}, { headers: getAuthHeaders() }); alert("Update complete."); } catch (e) { alert("Failed: " + e.message); } } }} className="w-full py-5 glass-panel rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-blue-400 hover:text-white hover:bg-blue-500/20 transition-all border border-blue-500/30 flex items-center justify-center shadow-2xl active:scale-95"><span className="mr-4 text-2xl">🔄</span> UPDATE SYSTEM</button>
+                <div className="pt-6 border-t border-white/5 space-y-6">
+                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label><input type="number" step="0.01" defaultValue={settings?.kwh_cost} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-black" title="Your local electricity rate for cost estimation" /></div>
+                  <div className="grid grid-cols-2 gap-4">{[{l:"Heater Watts",k:"heater_watts",t:"Wattage rating of the heating element"},{l:"Circ Watts",k:"circ_pump_watts",t:"Wattage of the low-speed circulation pump"},{l:"Jet Watts",k:"jet_pump_watts",t:"Wattage of the high-speed jet pump"},{l:"Light Watts",k:"light_watts",t:"Wattage of the underwater lighting"},{l:"Ozone Watts",k:"ozone_watts",t:"Wattage of the ozone purification unit"}].map(p => (<div key={p.k} className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter truncate">{p.l}</label><input type="number" defaultValue={settings?.[p.k]} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.k]: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-bold" title={p.t} /></div>))}</div>
+                </div>
+                <button onClick={async () => { if (confirm("Update from GitHub?")) { try { await axios.post(`${API_BASE}/control/update-system`, {}, { headers: getAuthHeaders() }); alert("Update triggered."); } catch (e) { alert("Failed: " + e.message); } } }} className="w-full py-5 glass-panel rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-blue-400 hover:text-white hover:bg-blue-500/20 transition-all border border-blue-500/30 flex items-center justify-center shadow-2xl active:scale-95" title="Pull latest software updates from GitHub and restart services"><span className="mr-4 text-2xl">🔄</span> UPDATE SYSTEM</button>
               </div>
             </div>
           )}
 
-          <div className="mt-8 p-4 glass-inset rounded-2xl">
+          <div className="mt-8 p-4 glass-inset rounded-2xl" title="Real-time estimated energy consumption costs">
              <h3 className="text-base font-black text-slate-500 uppercase flex items-center tracking-widest mb-4"><Zap size={16} className="mr-1 text-orange-400" /> Operating Costs</h3>
              {energyData ? (
                <div className="space-y-4">
@@ -613,8 +761,8 @@ function App() {
 }
 
 function Terminal({ content }) {
-  const scrollRef = React.useRef(null);
-  React.useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [content]);
+  const scrollRef = useRef(null);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [content]);
   const parseLine = (l) => { if (l.includes("ERROR") || l.includes("FAILURE") || l.includes("CRITICAL")) return "text-red-400"; if (l.includes("WARNING")) return "text-yellow-400"; if (l.includes("INFO")) return "text-blue-400"; return "text-slate-400"; };
   return (
     <div className="mt-8 glass-panel rounded-3xl overflow-hidden flex flex-col h-[400px] shadow-2xl"><div className="bg-white/5 px-6 py-3 border-b border-white/5 flex items-center justify-between"><div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-red-500/30"></div><div className="w-2 h-2 rounded-full bg-yellow-500/30"></div><div className="w-2 h-2 rounded-full bg-emerald-500/30"></div><span className="ml-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">System Console</span></div><div className="text-[10px] font-bold text-slate-600 animate-pulse flex items-center gap-2"><span>●</span> LIVE</div></div><div ref={scrollRef} className="p-6 overflow-y-auto font-mono text-[11px] leading-relaxed custom-scrollbar glass-inset flex-1">{content.split('\n').map((l, i) => (<div key={i} className="mb-1 whitespace-pre-wrap break-all hover:bg-white/5 transition-colors"><span className="text-slate-700 mr-4 select-none opacity-50 tabular-nums">{i + 1}</span><span className={parseLine(l)}>{l}</span></div>))}</div></div>

@@ -92,6 +92,40 @@ def cancel_soak(db: Session = Depends(get_db)):
     
     return {"status": "soak cancelled", "reverted_to": settings.default_rest_temp}
 
+@router.post("/cancel-scheduled-session")
+def cancel_scheduled_session(db: Session = Depends(get_db)):
+    state = db.query(SystemState).first()
+    settings = db.query(Settings).first()
+    
+    if not state or not settings:
+        raise HTTPException(status_code=500, detail="System configuration missing")
+
+    state.scheduled_session_active = False
+    state.scheduled_session_expires = None
+    state.jet_pump = False
+    state.light = False
+    state.ozone = False
+    
+    settings.set_point = settings.default_rest_temp
+    
+    log = UsageLog(event="Scheduled Session Cancelled", details="User manually stopped the active schedule.")
+    db.add(log)
+    db.commit()
+    
+    return {"status": "scheduled session cancelled", "reverted_to": settings.default_rest_temp}
+
+@router.post("/trigger-schedule/{schedule_id}")
+def trigger_schedule(schedule_id: int, db: Session = Depends(get_db)):
+    from ..db.models import Schedule
+    from ..services.scheduler import scheduler as hottub_scheduler
+    
+    sched = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not sched:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    hottub_scheduler.activate_schedule(sched, db)
+    return {"status": "schedule triggered", "name": sched.name}
+
 @router.post("/adjust-soak-timer")
 def adjust_soak_timer(adj: TimerAdjustment, db: Session = Depends(get_db)):
     state = db.query(SystemState).first()

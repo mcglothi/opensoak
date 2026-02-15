@@ -15,6 +15,8 @@ class ScheduleCreate(BaseModel):
     days_of_week: str
     target_temp: Optional[float] = None
     light_on: bool = True
+    jet_on: bool = False
+    ozone_on: bool = False
     active: bool = True
 
 class ScheduleResponse(ScheduleCreate):
