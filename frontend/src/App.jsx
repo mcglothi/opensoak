@@ -132,7 +132,10 @@ function App() {
       const newStatus = statusRes.data;
       const newSettings = settingsRes.data;
 
-      if (!newStatus) return; // Backend not ready
+      if (!newStatus) {
+        setError("Waiting for backend status... (Verify port 8000 is running)");
+        return;
+      }
 
       if (Date.now() - lastTimerAdjRef.current < 4000 && optimisticExpiryRef.current) {
         if (newStatus.desired_state) newStatus.desired_state.manual_soak_expires = optimisticExpiryRef.current;
