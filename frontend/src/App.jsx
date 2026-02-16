@@ -172,10 +172,13 @@ function App() {
       }
       
       if (Array.isArray(historyRes.data)) {
-        setHistory(historyRes.data.map(h => ({
-          ...h,
-          time: h.timestamp ? new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"
-        })).reverse());
+        setHistory(historyRes.data.map(h => {
+          const timestamp = h.timestamp && !h.timestamp.endsWith('Z') ? `${h.timestamp}Z` : h.timestamp;
+          return {
+            ...h,
+            time: timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"
+          };
+        }).reverse());
       }
       
       setError(null);
