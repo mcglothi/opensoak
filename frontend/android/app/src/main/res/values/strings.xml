@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OpenSoak</string>
+    <string name="title_activity_main">OpenSoak</string>
+    <string name="package_name">com.opensoak.app</string>
+    <string name="custom_url_scheme">com.opensoak.app</string>
+</resources>

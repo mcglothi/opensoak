@@ -29,6 +29,10 @@ OpenSoak is a modern, open-source hot tub control system designed to run on a Ra
 -   **Energy Monitoring:** Comprehensive real-time tracking of component runtimes and estimated operating costs.
 -   **Automated Scheduling:** Intuitive in-app scheduler for heating, filtration (clean), and ozone purification cycles.
 -   **Hardware Emulation:** Full simulation mode allows for logic testing and UI development on any PC without physical hardware.
+-   **Android TV & Home Theater:**
+    -   **Native TV App:** Optimized for NVIDIA Shield and other Android TV devices with full D-pad remote navigation and high-legibility "Viewer" mode.
+    -   **Command Center Widget:** A sophisticated, information-dense home screen widget for 10-foot viewing, featuring a 5-hour hourly weather forecast, real-time spa temperature, and active session countdowns.
+    -   **Connection Management:** Seamlessly switch between multiple OpenSoak backend hosts directly within the native app.
 
 ## 🛠 Hardware Architecture
 

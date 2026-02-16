@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="180" fill="url(#bg)" />
+  <path d="M60 40 C60 40 100 90 100 120 A40 40 0 0 1 20 120 C20 90 60 40 60 40 Z" fill="#3b82f6" />
+  <text x="120" y="110" font-family="sans-serif" font-weight="bold" font-size="40" fill="white">OpenSoak</text>
+  <text x="124" y="130" font-family="sans-serif" font-size="12" fill="#94a3b8" letter-spacing="2">INTELLIGENT SPA CONTROL</text>
+</svg>

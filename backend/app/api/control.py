@@ -129,24 +129,38 @@ def trigger_schedule(schedule_id: int, db: Session = Depends(get_db)):
 @router.post("/adjust-soak-timer")
 def adjust_soak_timer(adj: TimerAdjustment, db: Session = Depends(get_db)):
     state = db.query(SystemState).first()
-    if not state or not state.manual_soak_active or not state.manual_soak_expires:
+    if not state:
+        raise HTTPException(status_code=400, detail="System state not found")
+
+    # Determine which expiry to adjust
+    target_field = None
+    if state.manual_soak_active and state.manual_soak_expires:
+        target_field = "manual_soak_expires"
+    elif state.scheduled_session_active and state.scheduled_session_expires:
+        target_field = "scheduled_session_expires"
+
+    if not target_field:
         raise HTTPException(status_code=400, detail="No active soak session to adjust")
 
-    new_expiry = state.manual_soak_expires + timedelta(minutes=adj.minutes)
+    current_expiry = getattr(state, target_field)
+    new_expiry = current_expiry + timedelta(minutes=adj.minutes)
     
     # Don't allow timer to go below now
     if new_expiry < datetime.now():
-        return cancel_soak(db)
+        if target_field == "manual_soak_expires":
+            return cancel_soak(db)
+        else:
+            return cancel_scheduled_session(db)
 
-    state.manual_soak_expires = new_expiry
+    setattr(state, target_field, new_expiry)
     db.commit()
     
     event_type = "Time Added" if adj.minutes > 0 else "Time Removed"
-    log = UsageLog(event=f"Soak {event_type}", details=f"{abs(adj.minutes)} minutes adjusted. New expiry: {state.manual_soak_expires.strftime('%H:%M:%S')}")
+    log = UsageLog(event=f"Soak {event_type}", details=f"{abs(adj.minutes)} minutes adjusted. New expiry: {new_expiry.strftime('%H:%M:%S')}")
     db.add(log)
     db.commit()
     
-    return {"status": "timer adjusted", "expires": state.manual_soak_expires}
+    return {"status": "timer adjusted", "expires": new_expiry}
 
 @router.post("/reset-faults")
 def reset_faults(db: Session = Depends(get_db)):

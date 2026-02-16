@@ -1,0 +1,9 @@
+{
+  "appId": "com.opensoak.app",
+  "appName": "OpenSoak",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "allowNavigation": ["*"]
+  }
+}

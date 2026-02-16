@@ -85,3 +85,16 @@ body {
 .glass-inset {
   @apply bg-slate-950/30 backdrop-blur-2xl border border-white/5 shadow-inner;
 }
+
+/* TV Navigation Focus Styles */
+*:focus {
+  outline: none;
+}
+
+button:focus, 
+select:focus, 
+input:focus, 
+a:focus {
+  @apply ring-4 ring-blue-500/50 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-[1.02] transition-all duration-200 z-50;
+}
+

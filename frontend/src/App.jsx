@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import {
   Thermometer,
   Droplets,
@@ -35,7 +37,6 @@ import {
   Cell
 } from 'recharts';
 
-const API_BASE = `${window.location.protocol}//${window.location.host}/api`;
 const ADMIN_KEY_FRONTEND_PLACEHOLDER = "supersecretadminkey";
 
 // Defensive localStorage
@@ -45,6 +46,14 @@ const safeStorage = {
 };
 
 function App() {
+  const [apiBase, setApiBase] = useState(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return `${window.location.protocol}//${window.location.host}/api`;
+    }
+    return ""; // Will be loaded from preferences
+  });
+  const [showHostSettings, setShowHostSettings] = useState(false);
+  const [newHost, setNewHost] = useState("");
   const [status, setStatus] = useState(null);
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
@@ -68,6 +77,63 @@ function App() {
   const [showBugReport, setShowBugReport] = useState(false);
   const [bugSubmitting, setBugSubmitting] = useState(false);
 
+  // Load Host from Preferences
+  useEffect(() => {
+    const loadHost = async () => {
+      console.log("Loading host preferences...");
+      if (Capacitor.isNativePlatform()) {
+        const { value } = await Preferences.get({ key: 'opensoak_api_host' });
+        console.log("Preference value:", value);
+        
+        if (value) {
+          console.log("Using saved host:", value);
+          setApiBase(`${value}/api`);
+          setNewHost(value);
+          setLoading(true);
+        } else {
+          console.log("No saved host, starting discovery...");
+          // Try default hostnames
+          const hostsToTry = ["http://opensoak", "http://opensoak.home.timmcg.net"];
+          for (const host of hostsToTry) {
+            try {
+              console.log("Trying discovery host:", host);
+              const check = await axios.get(`${host}/api/status/`, { timeout: 2000 });
+              if (check.data) {
+                console.log("Discovery success:", host);
+                await Preferences.set({ key: 'opensoak_api_host', value: host });
+                setApiBase(`${host}/api`);
+                setNewHost(host);
+                setLoading(true);
+                return;
+              }
+            } catch (e) {
+              console.log(`Failed to connect to ${host}:`, e.message);
+            }
+          }
+          console.log("Discovery failed all hosts.");
+          // All defaults failed, ask user
+          setShowHostSettings(true);
+          setLoading(false);
+        }
+      }
+    };
+    loadHost();
+  }, []);
+
+  const saveHost = async () => {
+    let host = newHost.trim().toLowerCase();
+    if (host && !host.startsWith('http')) host = `http://${host}`;
+    if (host.endsWith('/')) host = host.slice(0, -1);
+    
+    console.log("Saving manual host:", host);
+    await Preferences.set({ key: 'opensoak_api_host', value: host });
+    setApiBase(`${host}/api`);
+    setShowHostSettings(false);
+    setLoading(true);
+    fetchData();
+  };
+
+
   // Refs
   const statusRef = useRef(null);
   const flyoutRef = useRef(null);
@@ -84,7 +150,10 @@ function App() {
       const params = new URLSearchParams(window.location.search);
       const urlRole = params.get('role');
       if (urlRole && ['viewer', 'user', 'admin'].includes(urlRole)) return urlRole;
-      return safeStorage.getItem('opensoak_role') || 'user';
+      const saved = safeStorage.getItem('opensoak_role');
+      if (saved) return saved;
+      // Default to viewer for TV, user for web
+      return Capacitor.isNativePlatform() ? 'viewer' : 'user';
     } catch (e) { return 'user'; }
   });
 
@@ -123,28 +192,41 @@ function App() {
   const getAuthHeaders = () => role === 'admin' ? { 'X-Admin-Key': ADMIN_KEY_FRONTEND_PLACEHOLDER } : {};
 
   const fetchData = async () => {
+    if (!apiBase) {
+      console.log("fetchData: apiBase is empty, skipping.");
+      return;
+    }
+    console.log("fetchData: fetching from", apiBase);
     try {
       const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes, heatStatsRes] = await Promise.all([
-        axios.get(`${API_BASE}/status/`).catch(() => ({ data: null })),
-        axios.get(`${API_BASE}/settings/`).catch(() => ({ data: null })),
-        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE}/schedules/`).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE}/status/logs`).catch(() => ({ data: [] })),
-        axios.get(`${API_BASE}/status/weather`).catch(() => ({ data: null })),
-        axios.get(`${API_BASE}/status/energy`).catch(() => ({ data: null })),
-        axios.get(`${API_BASE}/status/heating-stats`).catch(() => ({ data: null }))
+        axios.get(`${apiBase}/status/`).catch((e) => { console.log("status failed:", e.message); return { data: null }; }),
+        axios.get(`${apiBase}/settings/`).catch((e) => { console.log("settings failed:", e.message); return { data: null }; }),
+        axios.get(`${apiBase}/status/history?limit=${historyLimit}`).catch(() => ({ data: [] })),
+        axios.get(`${apiBase}/schedules/`).catch(() => ({ data: [] })),
+        axios.get(`${apiBase}/status/logs`).catch(() => ({ data: [] })),
+        axios.get(`${apiBase}/status/weather`).catch(() => ({ data: null })),
+        axios.get(`${apiBase}/status/energy`).catch(() => ({ data: null })),
+        axios.get(`${apiBase}/status/heating-stats`).catch(() => ({ data: null }))
       ]);
       
       const newStatus = statusRes.data;
       const newSettings = settingsRes.data;
 
       if (!newStatus) {
+        console.log("fetchData: No status data received.");
         setError("Waiting for backend status... (Verify port 8000 is running)");
         return;
       }
+      console.log("fetchData: Received status successfully.");
 
       if (Date.now() - lastTimerAdjRef.current < 4000 && optimisticExpiryRef.current) {
-        if (newStatus.desired_state) newStatus.desired_state.manual_soak_expires = optimisticExpiryRef.current;
+        if (newStatus.desired_state) {
+          if (newStatus.desired_state.manual_soak_active) {
+            newStatus.desired_state.manual_soak_expires = optimisticExpiryRef.current;
+          } else if (newStatus.desired_state.scheduled_session_active) {
+            newStatus.desired_state.scheduled_session_expires = optimisticExpiryRef.current;
+          }
+        }
       }
       if (Date.now() - lastTempAdjRef.current < 4000 && optimisticTempRef.current !== null) {
         if (newSettings) newSettings.set_point = optimisticTempRef.current;
@@ -179,7 +261,7 @@ function App() {
       if (heatStatsRes.data) setHeatingStats(heatStatsRes.data);
 
       if (role === 'admin') {
-        const sysLogsRes = await axios.get(`${API_BASE}/support/logs`, { headers: getAuthHeaders() }).catch(() => ({ data: {} }));
+        const sysLogsRes = await axios.get(`${apiBase}/support/logs`, { headers: getAuthHeaders() }).catch(() => ({ data: {} }));
         if (sysLogsRes.data && sysLogsRes.data.logs) setSystemLogs(String(sysLogsRes.data.logs));
       }
       
@@ -225,10 +307,17 @@ function App() {
   };
 
   useEffect(() => {
+    if (apiBase) {
+      console.log("apiBase changed, triggering initial fetch...");
+      fetchData();
+    }
+  }, [apiBase]);
+
+  useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
-  }, [historyLimit, isEditingTemp, role]);
+  }, [historyLimit, isEditingTemp, role, apiBase]);
 
   useEffect(() => {
     const hasManual = status?.desired_state?.manual_soak_active && status?.desired_state?.manual_soak_expires;
@@ -272,7 +361,17 @@ function App() {
       return next;
     });
     try {
-      await axios.post(`${API_BASE}/control/`, { [key]: val }, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/control/`, { [key]: val }, { headers: getAuthHeaders() });
+      // Notify Android Widget to refresh immediately
+      if (Capacitor.isNativePlatform()) {
+        const { value } = await Preferences.get({ key: 'opensoak_api_host' });
+        if (value) {
+          // Send broadcast via standard capacitor channel or just wait for next poll
+          // Since we don't have a specific native bridge plugin for broadcasts,
+          // the widget's own refresh logic will pick it up on its next internal cycle,
+          // but we can increase the fetch frequency in the Java code itself.
+        }
+      }
     } catch { delete optimisticControlsRef.current[key]; fetchData(); }
   };
 
@@ -284,7 +383,7 @@ function App() {
     setSettings(prev => ({ ...prev, set_point: newTemp }));
     setTempInput(newTemp.toString());
     try {
-      await axios.post(`${API_BASE}/settings/`, { set_point: newTemp }, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/settings/`, { set_point: newTemp }, { headers: getAuthHeaders() });
     } catch { lastTempAdjRef.current = 0; fetchData(); }
   };
 
@@ -292,58 +391,68 @@ function App() {
     if (!status || !status.desired_state) return;
     lastTimerAdjRef.current = Date.now();
     setStatus(prev => {
-      if (!prev || !prev.desired_state || !prev.desired_state.manual_soak_expires) return prev;
-      const newExpiry = new Date(new Date(prev.desired_state.manual_soak_expires).getTime() + (minutes * 60000)).toISOString();
+      if (!prev || !prev.desired_state) return prev;
+      
+      let targetField = null;
+      if (prev.desired_state.manual_soak_active && prev.desired_state.manual_soak_expires) {
+        targetField = "manual_soak_expires";
+      } else if (prev.desired_state.scheduled_session_active && prev.desired_state.scheduled_session_expires) {
+        targetField = "scheduled_session_expires";
+      }
+
+      if (!targetField) return prev;
+
+      const newExpiry = new Date(new Date(prev.desired_state[targetField]).getTime() + (minutes * 60000)).toISOString();
       optimisticExpiryRef.current = newExpiry;
-      return { ...prev, desired_state: { ...prev.desired_state, manual_soak_expires: newExpiry }};
+      return { ...prev, desired_state: { ...prev.desired_state, [targetField]: newExpiry }};
     });
     try {
-      await axios.post(`${API_BASE}/control/adjust-soak-timer`, { minutes }, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/control/adjust-soak-timer`, { minutes }, { headers: getAuthHeaders() });
     } catch { lastTimerAdjRef.current = 0; fetchData(); }
   };
 
   const startSoak = async (temp, duration) => {
     try {
-      await axios.post(`${API_BASE}/control/start-soak`, { target_temp: parseFloat(temp), duration_minutes: parseInt(duration) }, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/control/start-soak`, { target_temp: parseFloat(temp), duration_minutes: parseInt(duration) }, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) { alert(err.message); }
   };
 
   const cancelSoak = async () => {
     try {
-      await axios.post(`${API_BASE}/control/cancel-soak`, {}, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/control/cancel-soak`, {}, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) { alert(err.message); }
   };
 
   const cancelScheduledSession = async () => {
     try {
-      await axios.post(`${API_BASE}/control/cancel-scheduled-session`, {}, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/control/cancel-scheduled-session`, {}, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) { alert(err.message); }
   };
 
   const triggerSchedule = async (id) => {
     try {
-      await axios.post(`${API_BASE}/control/trigger-schedule/${id}`, {}, { headers: getAuthHeaders() });
+      await axios.post(`${apiBase}/control/trigger-schedule/${id}`, {}, { headers: getAuthHeaders() });
       fetchData();
     } catch (err) { alert(err.message); }
   };
 
   const masterShutdown = async () => {
     if (!window.confirm("Master Shutdown?")) return;
-    try { await axios.post(`${API_BASE}/control/master-shutdown`, {}, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
+    try { await axios.post(`${apiBase}/control/master-shutdown`, {}, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
   };
 
   const updateLocation = async (loc) => {
-    try { await axios.post(`${API_BASE}/settings/`, { location: loc }, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
+    try { await axios.post(`${apiBase}/settings/`, { location: loc }, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
   };
 
   const updateRestTemp = async (delta) => {
     if (!settings) return;
     const newTemp = Math.round((settings.default_rest_temp + delta) * 2) / 2;
     setSettings(prev => ({ ...prev, default_rest_temp: newTemp }));
-    try { await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() }); } catch { fetchData(); }
+    try { await axios.post(`${apiBase}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() }); } catch { fetchData(); }
   };
 
   const createSchedule = async (e) => {
@@ -362,15 +471,15 @@ function App() {
       active: true 
     };
     try {
-      if (editingSchedule) await axios.put(`${API_BASE}/schedules/${editingSchedule.id}`, data, { headers: getAuthHeaders() });
-      else await axios.post(`${API_BASE}/schedules/`, data, { headers: getAuthHeaders() });
+      if (editingSchedule) await axios.put(`${apiBase}/schedules/${editingSchedule.id}`, data, { headers: getAuthHeaders() });
+      else await axios.post(`${apiBase}/schedules/`, data, { headers: getAuthHeaders() });
       setEditingSchedule(null); e.target.reset(); fetchData();
     } catch (err) { alert(err.message); }
   };
 
   const deleteSchedule = async (id) => {
     if (!window.confirm("Delete?")) return;
-    try { await axios.delete(`${API_BASE}/schedules/${id}`, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
+    try { await axios.delete(`${apiBase}/schedules/${id}`, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
   };
 
   const toggleDay = (day) => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort());
@@ -432,13 +541,54 @@ function App() {
     setBugSubmitting(true);
     const formData = new FormData(e.target);
     try {
-      const res = await axios.post(`${API_BASE}/support/report-bug`, { title: formData.get('title'), description: formData.get('description') }, { headers: getAuthHeaders() });
+      const res = await axios.post(`${apiBase}/support/report-bug`, { title: formData.get('title'), description: formData.get('description') }, { headers: getAuthHeaders() });
       alert(`Bug reported! ${res.data.issue_url}`);
       setShowBugReport(false);
     } catch (err) { alert("Failed: " + err.message); } finally { setBugSubmitting(false); }
   };
 
-  if (loading && !error) return <div className="flex items-center justify-center h-screen bg-slate-950 text-white"><Zap className="animate-pulse mr-2" /> Loading OpenSoak...</div>;
+  if (showHostSettings) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8 text-center">
+        <div className="glass-panel p-12 rounded-[3rem] w-full max-w-lg shadow-2xl border-blue-500/20">
+          <Droplets className="w-16 h-16 text-blue-400 mb-6 mx-auto animate-pulse" />
+          <h1 className="text-4xl font-black uppercase tracking-tighter mb-4">Connect to OpenSoak</h1>
+          <p className="text-slate-400 mb-8 font-bold">Enter the IP address or hostname of your Raspberry Pi.</p>
+          <div className="space-y-6">
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Backend Host</label>
+              <input 
+                value={newHost} 
+                onChange={(e) => setNewHost(e.target.value)} 
+                placeholder="e.g. 192.168.1.100" 
+                className="w-full glass-inset p-5 rounded-2xl text-xl font-black outline-none focus:ring-4 ring-blue-500/50 transition-all shadow-inner"
+              />
+            </div>
+            <button 
+              onClick={saveHost}
+              className="w-full py-5 bg-blue-600 hover:bg-blue-500 rounded-2xl text-lg font-black uppercase tracking-widest transition-all shadow-xl active:scale-95"
+            >
+              Connect
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && !error) return (
+    <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white">
+      <Zap className="animate-pulse mb-4 w-12 h-12 text-blue-400" />
+      <h2 className="text-xl font-black uppercase tracking-widest">Loading OpenSoak...</h2>
+      {apiBase && <p className="text-slate-500 text-xs mt-2 font-mono">{apiBase}</p>}
+      <button 
+        onClick={() => { setShowHostSettings(true); setLoading(false); }}
+        className="mt-8 text-[10px] text-slate-600 uppercase font-black tracking-[0.2em] border-b border-slate-800 pb-1 hover:text-slate-400"
+      >
+        Manual Setup
+      </button>
+    </div>
+  );
   if (error) return <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-white p-4 text-center"><Zap className="text-red-500 mb-4 w-12 h-12" /><h1 className="text-xl font-bold mb-2">Error</h1><p className="text-slate-400 mb-6">{error}</p><button onClick={() => { setError(null); setLoading(true); fetchData(); }} className="bg-blue-600 px-6 py-2 rounded-full font-bold">Retry</button></div>;
 
   const currentTemp = lastValidTemp;
@@ -447,51 +597,51 @@ function App() {
 
   if (role === 'viewer') {
     return (
-      <div className="h-screen w-screen p-6 md:p-12 text-slate-100 font-sans relative overflow-hidden flex flex-col">
+      <div className="h-screen w-screen p-4 md:p-8 text-slate-100 font-sans relative overflow-hidden flex flex-col">
         <WaterBackground active={isHeaterOn} />
-        <header className="flex justify-between items-start relative z-20 mb-auto">
+        <header className="flex justify-between items-start relative z-20 mb-4">
           <div className="flex flex-col">
-            <h1 className="text-4xl md:text-6xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-white to-emerald-400 bg-clip-text text-transparent leading-none">OpenSoak</h1>
-            <div className={`mt-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest border w-fit ${status && status.safety_status === 'OK' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'}`}>SYSTEM: {status ? status.safety_status : 'UNKNOWN'}</div>
+            <h1 className="text-3xl md:text-5xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-white to-emerald-400 bg-clip-text text-transparent leading-none">OpenSoak</h1>
+            <div className={`mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border w-fit ${status && status.safety_status === 'OK' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20 animate-pulse'}`}>SYSTEM: {status ? status.safety_status : 'UNKNOWN'}</div>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-3xl md:text-5xl font-black tabular-nums">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}</span>
-            <span className="text-sm font-bold text-slate-500 uppercase tracking-widest">{new Date().toLocaleDateString([], {weekday: 'long', month: 'short', day: 'numeric'})}</span>
+            <span className="text-2xl md:text-4xl font-black tabular-nums">{new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{new Date().toLocaleDateString([], {weekday: 'long', month: 'short', day: 'numeric'})}</span>
           </div>
         </header>
         <main className="flex-1 flex items-center justify-center relative z-20 text-center">
           <div className="flex flex-col items-center">
             <div className="flex items-baseline relative">
-              <span className={`text-[12rem] md:text-[20rem] font-black tracking-tighter leading-none tabular-nums ${isHeaterOn ? 'animate-float bg-gradient-to-br from-white to-orange-200 bg-clip-text text-transparent drop-shadow-[0_0_50px_rgba(249,115,22,0.3)]' : 'text-white'}`}>{currentTemp}</span>
-              <span className="text-5xl md:text-8xl font-black text-white/10 ml-4">°F</span>
+              <span className={`text-[10rem] md:text-[16rem] font-black tracking-tighter leading-none tabular-nums ${isHeaterOn ? 'animate-float bg-gradient-to-br from-white to-orange-200 bg-clip-text text-transparent drop-shadow-[0_0_50px_rgba(249,115,22,0.3)]' : 'text-white'}`}>{currentTemp}</span>
+              <span className="text-4xl md:text-6xl font-black text-white/10 ml-4">°F</span>
             </div>
-            <div className="flex items-center gap-12 mt-4">
-              <div className="flex flex-col"><span className="text-slate-500 text-xs font-black uppercase tracking-[0.3em]">Status</span><span className={`text-3xl font-black ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>{isHeaterOn ? 'HEATING' : 'READY'}</span></div>
+            <div className="flex items-center gap-8 mt-2">
+              <div className="flex flex-col"><span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Status</span><span className={`text-2xl font-black ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>{isHeaterOn ? 'HEATING' : 'READY'}</span></div>
               {nextRunText && (
-                <div className="flex items-center gap-12">
-                  <div className="h-12 w-px bg-white/10"></div>
-                  <div className="flex flex-col"><span className="text-slate-500 text-xs font-black uppercase tracking-[0.3em]">Next Event</span><span className="text-3xl font-black text-blue-400 uppercase tracking-tighter">{nextRunText}</span></div>
+                <div className="flex items-center gap-8">
+                  <div className="h-8 w-px bg-white/10"></div>
+                  <div className="flex flex-col"><span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Next Event</span><span className="text-2xl font-black text-blue-400 uppercase tracking-tighter">{nextRunText}</span></div>
                 </div>
               )}
               {timeLeft && (
-                <div className="flex items-center gap-12">
-                  <div className="h-12 w-px bg-white/10"></div>
-                  <div className="flex flex-col"><span className="text-slate-500 text-xs font-black uppercase tracking-[0.3em]">Time Left</span><span className="text-3xl font-black text-blue-400 tabular-nums">{timeLeft}</span></div>
+                <div className="flex items-center gap-8">
+                  <div className="h-8 w-px bg-white/10"></div>
+                  <div className="flex flex-col"><span className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Time Left</span><span className="text-2xl font-black text-blue-400 tabular-nums">{timeLeft}</span></div>
                 </div>
               )}
             </div>
           </div>
         </main>
-        <footer className="grid grid-cols-2 md:grid-cols-4 gap-6 relative z-20 mt-auto">
-          <div className="glass-panel p-6 rounded-3xl flex items-center gap-4">
+        <footer className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-20 mt-4">
+          <div className="glass-panel p-4 rounded-2xl flex items-center gap-4">
             {weather && weather.current && <>
-              <div className="text-blue-400 scale-125">{React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 40 })}</div>
-              <div className="flex flex-col leading-tight"><span className="text-2xl font-black text-white">{weather.current.temperature_2m?.toFixed(0)}°</span><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{weather.city}</span></div>
+              <div className="text-blue-400 scale-110">{React.cloneElement(getWeatherIcon(weather.current.weather_code, weather.current.is_day), { size: 32 })}</div>
+              <div className="flex flex-col leading-tight"><span className="text-xl font-black text-white">{weather.current.temperature_2m?.toFixed(0)}°</span><span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">{weather.city}</span></div>
             </>}
           </div>
-          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex flex-col"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Maintain</span><span className="text-2xl font-black text-slate-300">{settings ? settings.set_point : '--'}°F</span></div><Thermometer className="text-slate-700" size={24} /></div>
-          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${status && status.actual_relay_state && status.actual_relay_state.jet_pump ? 'bg-blue-500 animate-pulse' : 'bg-white/10'}`}></div><span className="text-lg font-black text-slate-300 uppercase">Jets</span></div><Wind className="text-slate-700" size={24} /></div>
-          <div className="glass-panel p-6 rounded-3xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-3 h-3 rounded-full ${status && status.actual_relay_state && status.actual_relay_state.light ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-white/10'}`}></div><span className="text-lg font-black text-slate-300 uppercase">Lights</span></div><Lightbulb className="text-slate-700" size={24} /></div>
+          <div className="glass-panel p-4 rounded-2xl flex items-center justify-between"><div className="flex flex-col"><span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Maintain</span><span className="text-xl font-black text-slate-300">{settings ? settings.set_point : '--'}°F</span></div><Thermometer className="text-slate-700" size={20} /></div>
+          <div className="glass-panel p-4 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-2 h-2 rounded-full ${status && status.actual_relay_state && status.actual_relay_state.jet_pump ? 'bg-blue-500 animate-pulse' : 'bg-white/10'}`}></div><span className="text-base font-black text-slate-300 uppercase">Jets</span></div><Wind className="text-slate-700" size={20} /></div>
+          <div className="glass-panel p-4 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-2 h-2 rounded-full ${status && status.actual_relay_state && status.actual_relay_state.light ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-white/10'}`}></div><span className="text-base font-black text-slate-300 uppercase">Lights</span></div><Lightbulb className="text-slate-700" size={20} /></div>
         </footer>
         <div ref={flyoutRef} className={`fixed right-0 top-1/2 -translate-y-1/2 z-50 transition-transform duration-500 flex items-center ${showKioskControls ? 'translate-x-0' : 'translate-x-[calc(100%-12px)]'}`}>
           <button onClick={(e) => { e.stopPropagation(); setShowKioskControls(!showKioskControls); }} className="h-24 w-3 glass-panel rounded-l-full opacity-30 hover:opacity-100 transition-opacity"></button>
@@ -499,6 +649,9 @@ function App() {
             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Switch Mode</h3>
             <button onClick={() => setRole('user')} className="px-4 py-3 glass-inset hover:bg-blue-500/20 rounded-xl transition font-black uppercase text-xs">User</button>
             <button onClick={() => setRole('admin')} className="px-4 py-3 glass-inset hover:bg-red-500/20 rounded-xl transition font-black uppercase text-xs">Admin</button>
+            {Capacitor.isNativePlatform() && (
+              <button onClick={() => setShowHostSettings(true)} className="mt-4 px-4 py-3 glass-panel border-blue-500/30 hover:bg-blue-500/20 rounded-xl transition font-black uppercase text-[10px] text-blue-400">Change Host</button>
+            )}
           </div>
         </div>
       </div>
@@ -548,6 +701,14 @@ function App() {
             <select value={role} onChange={(e) => setRole(e.target.value)} className="bg-transparent text-[9px] sm:text-[10px] md:text-base text-slate-400 px-1.5 sm:px-2 md:px-4 outline-none cursor-pointer font-black uppercase tracking-tighter md:tracking-widest hover:text-white" title="Switch between View, User, and Admin modes">
               <option value="viewer" className="bg-slate-900">View</option><option value="user" className="bg-slate-900">User</option><option value="admin" className="bg-slate-900">Adm</option>
             </select>
+            {Capacitor.isNativePlatform() && (
+              <>
+                <div className="w-px h-5 md:h-8 bg-white/10"></div>
+                <button onClick={() => setShowHostSettings(true)} className="flex items-center justify-center aspect-square h-full px-2 sm:px-3 md:px-4 text-slate-500 hover:text-blue-400 group flex-shrink-0" title="Change Backend Host">
+                  <SettingsIcon className="w-4 h-4 md:w-7 md:h-7 group-hover:rotate-90 transition-transform duration-500" />
+                </button>
+              </>
+            )}
             <div className="w-px h-5 md:h-8 bg-white/10"></div>
             <button onClick={() => setShowBugReport(true)} className="flex items-center justify-center aspect-square h-full px-2 sm:px-3 md:px-4 text-slate-500 hover:text-blue-400 group flex-shrink-0" title="Report a problem or request a feature"><HelpCircle className="w-4 h-4 md:w-7 md:h-7 group-hover:scale-110 transition-transform" /></button>
           </div>
@@ -788,14 +949,14 @@ function App() {
               <div className="space-y-6">
                 <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Weather Location</label><input defaultValue={settings?.location} onBlur={(e) => updateLocation(e.target.value)} className="w-full glass-inset text-base p-4 rounded-xl outline-none focus:border-blue-500 transition shadow-inner font-bold" title="Enter Zip Code for local weather and forecasts" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Soak Min</label><input type="number" defaultValue={settings?.default_soak_duration} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { default_soak_duration: parseInt(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl outline-none font-bold" title="Default duration for manual soak sessions" /></div>
-                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Limit °F</label><input type="number" defaultValue={settings?.max_temp_limit} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { max_temp_limit: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl text-red-400 outline-none font-black" title="Maximum allowed temperature for safety (Master Cutoff)" /></div>
+                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Soak Min</label><input type="number" defaultValue={settings?.default_soak_duration} onBlur={(e) => axios.post(`${apiBase}/settings/`, { default_soak_duration: parseInt(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl outline-none font-bold" title="Default duration for manual soak sessions" /></div>
+                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Limit °F</label><input type="number" defaultValue={settings?.max_temp_limit} onBlur={(e) => axios.post(`${apiBase}/settings/`, { max_temp_limit: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-base p-4 rounded-xl text-red-400 outline-none font-black" title="Maximum allowed temperature for safety (Master Cutoff)" /></div>
                 </div>
                 <div className="pt-6 border-t border-white/5 space-y-6">
-                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label><input type="number" step="0.01" defaultValue={settings?.kwh_cost} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { kwh_cost: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-black" title="Your local electricity rate for cost estimation" /></div>
-                  <div className="grid grid-cols-2 gap-4">{[{l:"Heater Watts",k:"heater_watts",t:"Wattage rating of the heating element"},{l:"Circ Watts",k:"circ_pump_watts",t:"Wattage of the low-speed circulation pump"},{l:"Jet Watts",k:"jet_pump_watts",t:"Wattage of the high-speed jet pump"},{l:"Light Watts",k:"light_watts",t:"Wattage of the underwater lighting"},{l:"Ozone Watts",k:"ozone_watts",t:"Wattage of the ozone purification unit"}].map(p => (<div key={p.k} className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter truncate">{p.l}</label><input type="number" defaultValue={settings?.[p.k]} onBlur={(e) => axios.post(`${API_BASE}/settings/`, { [p.k]: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-bold" title={p.t} /></div>))}</div>
+                  <div className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Electric Cost ($/kWh)</label><input type="number" step="0.01" defaultValue={settings?.kwh_cost} onBlur={(e) => axios.post(`${apiBase}/settings/`, { kwh_cost: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-black" title="Your local electricity rate for cost estimation" /></div>
+                  <div className="grid grid-cols-2 gap-4">{[{l:"Heater Watts",k:"heater_watts",t:"Wattage rating of the heating element"},{l:"Circ Watts",k:"circ_pump_watts",t:"Wattage of the low-speed circulation pump"},{l:"Jet Watts",k:"jet_pump_watts",t:"Wattage of the high-speed jet pump"},{l:"Light Watts",k:"light_watts",t:"Wattage of the underwater lighting"},{l:"Ozone Watts",k:"ozone_watts",t:"Wattage of the ozone purification unit"}].map(p => (<div key={p.k} className="group relative"><label className="block text-[10px] text-slate-500 uppercase font-black ml-1 tracking-tighter truncate">{p.l}</label><input type="number" defaultValue={settings?.[p.k]} onBlur={(e) => axios.post(`${apiBase}/settings/`, { [p.k]: parseFloat(e.target.value) }, { headers: getAuthHeaders() })} className="w-full glass-inset text-sm p-3 rounded-xl outline-none font-bold" title={p.t} /></div>))}</div>
                 </div>
-                <button onClick={async () => { if (confirm("Update from GitHub?")) { try { await axios.post(`${API_BASE}/control/update-system`, {}, { headers: getAuthHeaders() }); alert("Update triggered."); } catch (e) { alert("Failed: " + e.message); } } }} className="w-full py-5 glass-panel rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-blue-400 hover:text-white hover:bg-blue-500/20 transition-all border border-blue-500/30 flex items-center justify-center shadow-2xl active:scale-95" title="Pull latest software updates from GitHub and restart services"><span className="mr-4 text-2xl">🔄</span> UPDATE SYSTEM</button>
+                <button onClick={async () => { if (confirm("Update from GitHub?")) { try { await axios.post(`${apiBase}/control/update-system`, {}, { headers: getAuthHeaders() }); alert("Update triggered."); } catch (e) { alert("Failed: " + e.message); } } }} className="w-full py-5 glass-panel rounded-2xl text-xs font-black uppercase tracking-[0.2em] text-blue-400 hover:text-white hover:bg-blue-500/20 transition-all border border-blue-500/30 flex items-center justify-center shadow-2xl active:scale-95" title="Pull latest software updates from GitHub and restart services"><span className="mr-4 text-2xl">🔄</span> UPDATE SYSTEM</button>
               </div>
             </div>
           )}
