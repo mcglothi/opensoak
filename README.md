@@ -94,6 +94,17 @@ Edit `backend/.env` to match your specific GPIO pinout and temperature threshold
 ```
 Access the dashboard at `http://<your-pi-ip>:5173` and the API docs at `http://<your-pi-ip>:8000/docs`.
 
+### 5. Android TV Deployment
+To install the native app on an NVIDIA Shield or similar device:
+1.  **Enable Developer Options:** Go to *Settings > Device Preferences > About* and click *Build* 7 times.
+2.  **Enable Network Debugging:** In *Developer options*, enable *Network Debugging* and note the IP address.
+3.  **Install via ADB:**
+    ```bash
+    adb connect <shield-ip>
+    adb install frontend/android/app/build/outputs/apk/debug/app-debug.apk
+    ```
+4.  **Configuration:** On first launch, the app will attempt to discover the backend at `http://opensoak`. If not found, use the **Manual Setup** button to enter your Pi's IP.
+
 ## 🛡 Safety Warning
 
 **Use at your own risk.** Controlling high-voltage hot tub equipment (heaters, pumps) is inherently dangerous. This software is provided "as is" without warranty. Always use a GFCI breaker and consult a qualified electrician when wiring your hot tub controller.
