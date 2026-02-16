@@ -180,7 +180,7 @@ function App() {
 
       if (role === 'admin') {
         const sysLogsRes = await axios.get(`${API_BASE}/support/logs`, { headers: getAuthHeaders() }).catch(() => ({ data: {} }));
-        if (sysLogsRes.data && sysLogsRes.data.logs) setSystemLogs(sysLogsRes.data.logs);
+        if (sysLogsRes.data && sysLogsRes.data.logs) setSystemLogs(String(sysLogsRes.data.logs));
       }
       
       if (Array.isArray(historyRes.data)) {
@@ -216,7 +216,7 @@ function App() {
           }
         });
         if (warnings.length > 0) {
-          setWeatherWarning(`Notice: Rain/Snow forecast during "${warnings[0].name}" at ${warnings[0].time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12: true})}.`);
+          setWeatherWarning(`Notice: Rain forecast for "${warnings[0].name}" at ${warnings[0].time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', hour12: true})}.`);
         } else { setWeatherWarning(null); }
       }
     } catch (err) {
@@ -238,6 +238,7 @@ function App() {
       const calculate = () => {
         const now = new Date();
         const expiryStr = hasManual ? status.desired_state.manual_soak_expires : status.desired_state.scheduled_session_expires;
+        if (!expiryStr) return false;
         const expires = new Date(expiryStr);
         const diff = expires.getTime() - now.getTime();
         
@@ -388,7 +389,9 @@ function App() {
   const formatTime = (timeStr) => {
     if (!timeStr) return "";
     try {
-      const [h, m] = timeStr.split(':').map(Number);
+      const parts = timeStr.split(':');
+      const h = parseInt(parts[0]);
+      const m = parseInt(parts[1]);
       const ampm = h >= 12 ? 'PM' : 'AM';
       const hour = h % 12 || 12;
       return `${hour}:${m < 10 ? '0' : ''}${m} ${ampm}`;
@@ -405,7 +408,9 @@ function App() {
     schedules.forEach(s => {
       if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak') return;
       try {
-        const [h, m] = s.start_time.split(':').map(Number);
+        const parts = s.start_time.split(':');
+        const h = parseInt(parts[0]);
+        const m = parseInt(parts[1]);
         const sDays = String(s.days_of_week).split(',').map(Number);
         const sTime = h * 60 + m;
         sDays.forEach(day => {
@@ -639,16 +644,18 @@ function App() {
               </div>
             )}
           </div>
-          <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest" title="Change the timeframe displayed on the graph"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
+          <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest" title="Change the timeframe displayed on the graph"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
           {weather && weather.daily && <div className="mt-8 pt-8 border-t border-white/10"><h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest text-center md:text-left">7-Day Forecast</h3><div className="flex lg:grid lg:grid-cols-7 gap-5 overflow-x-auto lg:overflow-visible pb-6 custom-scrollbar">{weather.daily.time.slice(0, 7).map((date, idx) => (<a key={date} href={getWeatherLink()} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 w-32 lg:w-auto flex flex-col items-center p-5 rounded-[2rem] glass-inset shadow-xl transition-all hover:scale-105 hover:bg-white/5" title={`View details for ${new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'long' })}`}><span className="text-[10px] text-slate-400 uppercase font-black mb-5 tracking-tighter">{new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}</span><div className="mb-5 text-blue-400">{React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 48 })}</div><div className="flex flex-col items-center"><span className="text-2xl font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span><span className="text-sm text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span></div></a>))}</div></div>}
         </div>
 
         <div className="glass-panel rounded-3xl p-8 shadow-xl h-fit">
           <div className="space-y-4">
-            <h2 className="text-white text-xl font-bold mb-6 flex items-center uppercase tracking-tighter"><SettingsIcon className="w-5 h-5 mr-2 text-slate-400" /> Device Controls</h2>
-            <StatusIndicator label="Heater" active={isHeaterOn} color="orange" isLarge={true} icon={<Zap size={20} />} />
-            <ControlToggle label="Jets" icon={<Wind />} active={status && status.actual_relay_state && status.actual_relay_state.jet_pump} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.jet_pump !== status.actual_relay_state.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" title="Toggle Jet Pump" />
-            <ControlToggle label="Light" icon={<Lightbulb />} active={status && status.actual_relay_state && status.actual_relay_state.light} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.light !== status.actual_relay_state.light} onToggle={(v) => toggleControl('light', v)} color="yellow" title="Toggle Light" />
+            <div className="hidden lg:block space-y-4">
+              <h2 className="text-white text-xl font-bold mb-6 flex items-center uppercase tracking-tighter"><SettingsIcon className="w-5 h-5 mr-2 text-slate-400" /> Device Controls</h2>
+              <StatusIndicator label="Heater" active={isHeaterOn} color="orange" isLarge={true} icon={<Zap size={20} />} />
+              <ControlToggle label="Jets" icon={<Wind />} active={status && status.actual_relay_state && status.actual_relay_state.jet_pump} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.jet_pump !== status.actual_relay_state.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" title="Toggle Jet Pump" />
+              <ControlToggle label="Light" icon={<Lightbulb />} active={status && status.actual_relay_state && status.actual_relay_state.light} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.light !== status.actual_relay_state.light} onToggle={(v) => toggleControl('light', v)} color="yellow" title="Toggle Light" />
+            </div>
             {role === 'admin' && (
               <div className="pt-4 border-t border-white/10 space-y-4">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Administrative</h3>
@@ -682,7 +689,7 @@ function App() {
                           <div className="flex gap-2.5 items-center">
                             {Boolean(s.jet_on) && <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20" title="Schedule includes Jets"><Wind size={14} className="text-blue-400" /><span className="text-[8px] font-black text-blue-400 uppercase">Jets</span></div>}
                             {Boolean(s.light_on) && <div className="flex items-center gap-1 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20" title="Schedule includes Light"><Lightbulb size={14} className="text-yellow-400" /><span className="text-[8px] font-black text-yellow-400 uppercase">Light</span></div>}
-                            {Boolean(s.ozone_on) && <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title="Schedule includes Ozone"><Sparkles size={14} className="text-emerald-400" /><span className="text-[8px] font-black text-emerald-400 uppercase">Ozone</span></div>}
+                            {Boolean(s.ozone_on) && <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20" title="Schedule includes Ozone"><Sparkles size={14} className="text-emerald-400" /><span className="text-[9px] font-black text-emerald-400 uppercase">Ozone</span></div>}
                             {s.type === 'soak' && s.target_temp && (
                               <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded border border-white/10" title="Target temperature for this soak">
                                 <Thermometer size={14} className="text-blue-400" />
@@ -813,24 +820,56 @@ function App() {
                          </div>
                        </div>
 
-                       <div className="h-24 w-full mb-4">
-                         <ResponsiveContainer width="100%" height="100%">
-                           <BarChart data={heatingStats.histogram}>
-                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                             <XAxis dataKey="time" hide />
-                             <YAxis hide domain={[0, 'auto']} />
-                             <Tooltip 
-                               contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                               itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
-                               labelStyle={{ display: 'none' }}
-                             />
-                             <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
-                               {heatingStats.histogram.map((entry, index) => (
-                                 <Cell key={`cell-${index}`} fill={entry.type === 'heat' ? '#f97316' : '#3b82f6'} fillOpacity={0.6} />
-                               ))}
-                             </Bar>
-                           </BarChart>
-                         </ResponsiveContainer>
+                       <div className="h-24 w-full mb-4 flex items-center justify-center">
+                         {heatingStats.histogram && heatingStats.histogram.length > 0 ? (
+                           <ResponsiveContainer width="100%" height="100%">
+                             <BarChart data={heatingStats.histogram}>
+                               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                               <XAxis 
+                                 dataKey="time" 
+                                 axisLine={false} 
+                                 tickLine={false} 
+                                 tick={{ fontSize: 7, fill: '#475569', fontWeight: 'bold' }} 
+                                 interval={2}
+                                 tickFormatter={(val) => val && typeof val === 'string' ? val.split(' ')[0] : ''} 
+                               />
+                               <YAxis hide domain={[0, 'auto']} />
+                               <Tooltip 
+                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                 content={({ active, payload }) => {
+                                   if (active && payload && payload.length) {
+                                     const data = payload[0].payload;
+                                     return (
+                                       <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 p-3 rounded-xl shadow-2xl">
+                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{data.time}</p>
+                                         <div className="flex items-center gap-2">
+                                           <div className={`w-2 h-2 rounded-full ${data.type === 'heat' ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
+                                           <p className="text-xs font-black text-white uppercase">
+                                             {data.rate} °F/hr {data.type === 'heat' ? 'Gain' : 'Loss'}
+                                           </p>
+                                         </div>
+                                         {data.outside && <p className="text-[9px] font-bold text-slate-500 mt-1 uppercase">Outside: {data.outside.toFixed(0)}°F</p>}
+                                       </div>
+                                     );
+                                   }
+                                   return null;
+                                 }}
+                               />
+                               <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
+                                 {heatingStats.histogram.map((entry, index) => (
+                                   <Cell key={`cell-${index}`} fill={entry.type === 'heat' ? '#f97316' : '#3b82f6'} fillOpacity={0.6} />
+                                 ))}
+                               </Bar>
+                             </BarChart>
+                           </ResponsiveContainer>
+                         ) : (
+                           <div className="text-[10px] text-slate-600 italic font-bold uppercase tracking-widest flex flex-col items-center gap-2">
+                             <div className="flex gap-1 h-8 items-end">
+                               {[1,2,3,4,5].map(i => <div key={i} className="w-2 bg-white/5 rounded-t animate-pulse" style={{ height: `${20 + (i*10)}%`, animationDelay: `${i*0.1}s` }}></div>)}
+                             </div>
+                             Gathering Performance Data...
+                           </div>
+                         )}
                        </div>
 
                        <div className="flex justify-between items-center mb-2">
@@ -903,8 +942,8 @@ function StatusIndicator({ label, active, color, isLarge, icon }) {
     emerald: { text: "text-white", bg: "bg-emerald-600", border: "border-emerald-400", shadow: "shadow-[0_0_30px_rgba(16,185,129,0.4)]" }
   };
   const c = colorMaps[color] || colorMaps.orange;
-  if (isLarge) return (<div className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all duration-500 border ${active ? `opacity-100 ${c.bg} ${c.text} ${c.border} ${c.shadow}` : 'opacity-40 border-white/5 bg-slate-900/20'}`}><div className="flex items-center"><div className={`p-3 rounded-xl ${active ? `bg-white/20` : 'bg-white/5 text-slate-600'}`}>{React.cloneElement(icon, { className: active ? 'animate-pulse' : '' })}</div><span className="ml-4 font-black uppercase tracking-tight">{label}</span></div><div className={`w-3 h-3 rounded-full ${active ? `bg-white animate-pulse shadow-[0_0_10px_white]` : 'bg-white/10'}`} /></div>);
-  return (<div className={`p-3 rounded-xl flex flex-col items-center justify-center space-y-1 transition-all border ${active ? `opacity-100 ${c.bg} ${c.text} ${c.border}` : 'opacity-30 border-transparent'}`}><div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : 'bg-white/10'} ${active ? 'animate-pulse' : ''}`} /><span className="text-[10px] font-bold uppercase">{label}</span></div>);
+  if (isLarge) return (<div className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all duration-500 border ${active ? `opacity-100 ${c.bg} ${c.text} ${c.border} ${c.shadow}` : 'opacity-40 border-white/5 bg-slate-900/20'}`}><div className="flex items-center"><div className={`p-3 rounded-xl ${active ? `bg-white/20 text-white` : 'bg-white/5 text-slate-600'}`}>{React.cloneElement(icon, { className: active ? 'animate-pulse' : '' })}</div><span className={`ml-4 font-black uppercase tracking-tight ${active ? 'text-white' : 'text-slate-300'}`}>{label}</span></div><div className={`w-3 h-3 rounded-full ${active ? `bg-white animate-pulse shadow-[0_0_10px_white]` : 'bg-white/10'}`} /></div>);
+  return (<div className={`p-3 rounded-xl glass-inset flex flex-col items-center justify-center space-y-1 transition-all ${active ? `opacity-100 ${c.bg} ${c.text}` : 'opacity-30'}`}><div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : 'bg-white/10'} ${active ? 'animate-pulse' : ''}`} /><span className={`text-[10px] font-bold uppercase ${active ? 'text-white' : 'text-slate-500'}`}>{label}</span></div>);
 }
 
 function ControlToggle({ label, icon, active, onToggle, color, disabled, loading, title }) {
@@ -916,7 +955,7 @@ function ControlToggle({ label, icon, active, onToggle, color, disabled, loading
     gray: { glow: "border-white/10", thumb: "bg-white/20", track: "bg-black/40" } 
   };
   const c = active ? colors[color] : colors.gray;
-  return (<div className="group relative"><button onClick={() => !disabled && onToggle(!active)} disabled={disabled || loading} className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all duration-500 shadow-xl ${disabled ? 'opacity-30 cursor-not-allowed' : ''} bg-slate-900/40 ${c.glow} ${loading ? 'animate-pulse brightness-110' : ''} backdrop-blur-3xl`} title={title}><div className="flex items-center"><div className={`p-3 rounded-xl transition-all ${active ? 'bg-white/10 shadow-lg' : 'bg-slate-900/40'}`}>{React.cloneElement(icon, { size: 24, className: active ? 'text-white' : 'text-slate-400' })}</div><div className="flex flex-col items-start ml-4 text-left"><span className={`font-black tracking-tight uppercase text-sm md:text-base ${active ? 'text-white' : 'text-slate-300'}`}>{label}</span>{loading && <span className="text-[10px] font-black uppercase tracking-widest text-white/60 animate-pulse">Syncing...</span>}</div></div><div className={`w-14 h-7 rounded-full relative transition-colors ${c.track} border border-white/10`}><div className={`absolute top-1 w-5 h-5 rounded-full shadow-xl transition-all ${active ? `right-1 ${c.thumb}` : 'left-1 bg-white/20'}`} /></div></button></div>);
+  return (<div className="group relative"><button onClick={() => !disabled && onToggle(!active)} disabled={disabled || loading} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-500 shadow-xl ${disabled ? 'opacity-30 cursor-not-allowed' : ''} bg-slate-900/40 ${c.glow} ${loading ? 'animate-pulse brightness-110' : ''} backdrop-blur-3xl`} title={title}><div className="flex items-center min-w-0"><div className={`hidden md:flex p-2.5 rounded-xl transition-all flex-shrink-0 ${active ? 'bg-white/10 shadow-lg' : 'bg-slate-900/40'}`}>{React.cloneElement(icon, { size: 20, className: active ? 'text-white' : 'text-slate-400' })}</div><div className="flex flex-col items-start md:ml-3 text-left min-w-0"><span className={`font-black tracking-tight uppercase text-xs md:text-sm whitespace-nowrap ${active ? 'text-white' : 'text-slate-300'}`}>{label}</span>{loading && <span className="text-[8px] font-black uppercase tracking-widest text-white/60 animate-pulse whitespace-nowrap">Syncing...</span>}</div></div><div className={`w-16 h-7 rounded-full relative transition-colors ${c.track} border border-white/10 flex-shrink-0 ml-2`}><div className={`absolute top-1 w-5 h-5 rounded-full shadow-xl transition-all ${active ? `right-1 ${c.thumb}` : 'left-1 bg-white/20'}`} /></div></button></div>);
 }
 
 function WaterBackground({ active }) {
