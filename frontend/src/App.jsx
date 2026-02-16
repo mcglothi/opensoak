@@ -25,11 +25,14 @@ import {
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Cell
 } from 'recharts';
 
 const API_BASE = `${window.location.protocol}//${window.location.host}/api`;
@@ -52,6 +55,7 @@ function App() {
   const [historyLimit, setHistoryLimit] = useState(60);
   const [usageLogs, setUsageLogs] = useState([]);
   const [energyData, setEnergyData] = useState(null);
+  const [heatingStats, setHeatingStats] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [weather, setWeather] = useState(null);
   const [tempInput, setTempInput] = useState("");
@@ -61,6 +65,8 @@ function App() {
   const [weatherWarning, setWeatherWarning] = useState(null);
   const [showKioskControls, setShowKioskControls] = useState(false);
   const [lastValidTemp, setLastValidTemp] = useState("--");
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugSubmitting, setBugSubmitting] = useState(false);
 
   // Refs
   const statusRef = useRef(null);
@@ -103,7 +109,6 @@ function App() {
         setShowKioskControls(false);
       }
     };
-    // Use 'click' for better compatibility across TV browsers
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
   }, [showKioskControls]);
@@ -119,14 +124,15 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes] = await Promise.all([
-        axios.get(`${API_BASE}/status/`).catch(e => ({ data: null })),
-        axios.get(`${API_BASE}/settings/`).catch(e => ({ data: null })),
-        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`).catch(e => ({ data: [] })),
-        axios.get(`${API_BASE}/schedules/`).catch(e => ({ data: [] })),
-        axios.get(`${API_BASE}/status/logs`).catch(e => ({ data: [] })),
-        axios.get(`${API_BASE}/status/weather`).catch(e => ({ data: null })),
-        axios.get(`${API_BASE}/status/energy`).catch(e => ({ data: null }))
+      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes, heatStatsRes] = await Promise.all([
+        axios.get(`${API_BASE}/status/`).catch(() => ({ data: null })),
+        axios.get(`${API_BASE}/settings/`).catch(() => ({ data: null })),
+        axios.get(`${API_BASE}/status/history?limit=${historyLimit}`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/schedules/`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/status/logs`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/status/weather`).catch(() => ({ data: null })),
+        axios.get(`${API_BASE}/status/energy`).catch(() => ({ data: null })),
+        axios.get(`${API_BASE}/status/heating-stats`).catch(() => ({ data: null }))
       ]);
       
       const newStatus = statusRes.data;
@@ -162,12 +168,18 @@ function App() {
       }
       
       if (Array.isArray(schedulesRes.data)) setSchedules(schedulesRes.data);
-      if (Array.isArray(logsRes.data)) setUsageLogs(logsRes.data);
+      if (Array.isArray(logsRes.data)) {
+        setUsageLogs(logsRes.data.map(l => {
+          const timestamp = l.timestamp && !l.timestamp.endsWith('Z') ? `${l.timestamp}Z` : l.timestamp;
+          return { ...l, timestamp };
+        }));
+      }
       if (weatherRes.data && !weatherRes.data.error) setWeather(weatherRes.data);
       if (energyRes.data && !energyRes.data.error) setEnergyData(energyRes.data);
+      if (heatStatsRes.data) setHeatingStats(heatStatsRes.data);
 
       if (role === 'admin') {
-        const sysLogsRes = await axios.get(`${API_BASE}/support/logs`, { headers: getAuthHeaders() }).catch(e => ({ data: {} }));
+        const sysLogsRes = await axios.get(`${API_BASE}/support/logs`, { headers: getAuthHeaders() }).catch(() => ({ data: {} }));
         if (sysLogsRes.data && sysLogsRes.data.logs) setSystemLogs(sysLogsRes.data.logs);
       }
       
@@ -184,8 +196,7 @@ function App() {
       setError(null);
       setLoading(false);
 
-      // Weather Warning
-      if (weatherRes.data && weatherRes.data.hourly && schedulesRes.data && schedulesRes.data.length > 0) {
+      if (weatherRes.data && weatherRes.data.hourly && schedulesRes.data) {
         const warnings = [];
         const now = new Date();
         const activeSchedules = schedulesRes.data.filter(s => s.active);
@@ -209,7 +220,6 @@ function App() {
         } else { setWeatherWarning(null); }
       }
     } catch (err) {
-      console.error(err);
       setError(`Connection Error: ${err.message}`);
     }
   };
@@ -262,7 +272,7 @@ function App() {
     });
     try {
       await axios.post(`${API_BASE}/control/`, { [key]: val }, { headers: getAuthHeaders() });
-    } catch (e) { delete optimisticControlsRef.current[key]; fetchData(); }
+    } catch { delete optimisticControlsRef.current[key]; fetchData(); }
   };
 
   const updateSetPoint = async (delta) => {
@@ -274,7 +284,7 @@ function App() {
     setTempInput(newTemp.toString());
     try {
       await axios.post(`${API_BASE}/settings/`, { set_point: newTemp }, { headers: getAuthHeaders() });
-    } catch (e) { lastTempAdjRef.current = 0; fetchData(); }
+    } catch { lastTempAdjRef.current = 0; fetchData(); }
   };
 
   const adjustTimer = async (minutes) => {
@@ -288,7 +298,7 @@ function App() {
     });
     try {
       await axios.post(`${API_BASE}/control/adjust-soak-timer`, { minutes }, { headers: getAuthHeaders() });
-    } catch (e) { lastTimerAdjRef.current = 0; fetchData(); }
+    } catch { lastTimerAdjRef.current = 0; fetchData(); }
   };
 
   const startSoak = async (temp, duration) => {
@@ -332,7 +342,7 @@ function App() {
     if (!settings) return;
     const newTemp = Math.round((settings.default_rest_temp + delta) * 2) / 2;
     setSettings(prev => ({ ...prev, default_rest_temp: newTemp }));
-    try { await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() }); } catch (e) { fetchData(); }
+    try { await axios.post(`${API_BASE}/settings/`, { default_rest_temp: newTemp }, { headers: getAuthHeaders() }); } catch { fetchData(); }
   };
 
   const createSchedule = async (e) => {
@@ -382,42 +392,45 @@ function App() {
       const ampm = h >= 12 ? 'PM' : 'AM';
       const hour = h % 12 || 12;
       return `${hour}:${m < 10 ? '0' : ''}${m} ${ampm}`;
-    } catch (e) { return timeStr; }
+    } catch { return timeStr; }
   };
 
-  // Calculate Next Scheduled Run
   const getNextRun = () => {
     if (!Array.isArray(schedules) || schedules.length === 0) return null;
     const now = new Date();
     const currentDay = (now.getDay() + 6) % 7; 
     const currentTime = now.getHours() * 60 + now.getMinutes();
-
     let next = null;
     let minDiff = Infinity;
-
     schedules.forEach(s => {
       if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak') return;
       try {
         const [h, m] = s.start_time.split(':').map(Number);
         const sDays = String(s.days_of_week).split(',').map(Number);
         const sTime = h * 60 + m;
-
         sDays.forEach(day => {
           let dayDiff = day - currentDay;
           if (dayDiff < 0 || (dayDiff === 0 && sTime <= currentTime)) dayDiff += 7;
           const totalDiff = dayDiff * 1440 + (sTime - currentTime);
-          if (totalDiff < minDiff) {
-            minDiff = totalDiff;
-            next = { ...s, dayDiff };
-          }
+          if (totalDiff < minDiff) { minDiff = totalDiff; next = { ...s, dayDiff }; }
         });
-      } catch (e) {}
+      } catch {}
     });
-
     if (!next) return null;
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const targetDay = next.dayDiff === 0 ? 'Today' : next.dayDiff === 1 ? 'Tomorrow' : days[(currentDay + next.dayDiff) % 7];
     return `${next.name} (${targetDay} @ ${formatTime(next.start_time)})`;
+  };
+
+  const submitBugReport = async (e) => {
+    e.preventDefault();
+    setBugSubmitting(true);
+    const formData = new FormData(e.target);
+    try {
+      const res = await axios.post(`${API_BASE}/support/report-bug`, { title: formData.get('title'), description: formData.get('description') }, { headers: getAuthHeaders() });
+      alert(`Bug reported! ${res.data.issue_url}`);
+      setShowBugReport(false);
+    } catch (err) { alert("Failed: " + err.message); } finally { setBugSubmitting(false); }
   };
 
   if (loading && !error) return <div className="flex items-center justify-center h-screen bg-slate-950 text-white"><Zap className="animate-pulse mr-2" /> Loading OpenSoak...</div>;
@@ -531,7 +544,7 @@ function App() {
               <option value="viewer" className="bg-slate-900">View</option><option value="user" className="bg-slate-900">User</option><option value="admin" className="bg-slate-900">Adm</option>
             </select>
             <div className="w-px h-5 md:h-8 bg-white/10"></div>
-            <button onClick={() => fetchData()} className="flex items-center justify-center aspect-square h-full px-2 sm:px-3 md:px-4 text-slate-500 hover:text-blue-400 group flex-shrink-0" title="Refresh all system data manually"><HelpCircle className="w-4 h-4 md:w-7 md:h-7 group-hover:scale-110 transition-transform" /></button>
+            <button onClick={() => setShowBugReport(true)} className="flex items-center justify-center aspect-square h-full px-2 sm:px-3 md:px-4 text-slate-500 hover:text-blue-400 group flex-shrink-0" title="Report a problem or request a feature"><HelpCircle className="w-4 h-4 md:w-7 md:h-7 group-hover:scale-110 transition-transform" /></button>
           </div>
         </div>
       </header>
@@ -548,12 +561,13 @@ function App() {
           <div className={`absolute top-0 right-0 p-4 md:p-8 opacity-5 transition-transform duration-[5000ms] ${isHeaterOn ? 'text-orange-500' : 'text-slate-700'}`}>
             <Thermometer className="w-32 h-32 md:w-48 md:h-48" />
           </div>
-          <div className="relative z-10">
-            <h2 className="text-slate-500 text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center"><Thermometer className={`w-4 h-4 mr-2 ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-blue-400'}`} /> Current Water Temperature</h2>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-              <div className="flex items-baseline min-w-[180px] md:min-w-[280px]"><span className={`text-7xl md:text-9xl font-black tracking-tighter text-white transition-all tabular-nums ${isHeaterOn ? 'animate-float bg-gradient-to-br from-white to-orange-200 bg-clip-text text-transparent' : ''}`}>{currentTemp}</span><span className="text-3xl md:text-5xl font-black text-white/10 ml-2 tracking-tighter">°F</span></div>
+          <div className="relative z-10 flex flex-col items-center sm:items-start">
+            <h2 className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center justify-center sm:justify-start w-full"><Thermometer className={`w-4 h-4 mr-2 ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-blue-400'}`} /> Current Water Temperature</h2>
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-6 w-full">
+              <div className="flex items-baseline justify-center sm:justify-start min-w-[180px] md:min-w-[280px]"><span className={`text-8xl sm:text-9xl md:text-9xl font-black tracking-tighter text-white transition-all tabular-nums ${isHeaterOn ? 'animate-float bg-gradient-to-br from-white to-orange-200 bg-clip-text text-transparent' : ''}`}>{currentTemp}</span><span className="text-4xl md:text-5xl font-black text-white/10 ml-2 tracking-tighter">°F</span></div>
+              
               {timeLeft && (
-                <div className="flex items-center space-x-4 glass-inset p-3 md:p-4 rounded-[2rem] shadow-2xl backdrop-blur-3xl">
+                <div className="flex items-center space-x-4 glass-inset p-3 md:p-4 rounded-[2rem] shadow-2xl backdrop-blur-3xl mx-auto sm:mx-0">
                   <div className="flex flex-col items-center justify-center min-w-[90px] md:min-w-[110px] border-r border-white/10 pr-4"><span className="text-[10px] md:text-xs font-black text-slate-500 uppercase tracking-widest mb-1">Time Left</span><span className="text-2xl md:text-4xl font-mono font-bold text-blue-400">{timeLeft}</span></div>
                   {role !== 'viewer' && (
                     <div className="flex items-center space-x-3">
@@ -567,8 +581,18 @@ function App() {
                 </div>
               )}
             </div>
+
+            {/* Mobile Controls */}
+            <div className="lg:hidden mt-8 grid grid-cols-2 gap-4 w-full">
+              <div className="col-span-2">
+                <StatusIndicator label="Heater" active={isHeaterOn} color="orange" isLarge={true} icon={<Zap size={20} />} />
+              </div>
+              <ControlToggle label="Jets" icon={<Wind />} active={status && status.actual_relay_state && status.actual_relay_state.jet_pump} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.jet_pump !== status.actual_relay_state.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" title="Toggle Jet Pump" />
+              <ControlToggle label="Light" icon={<Lightbulb />} active={status && status.actual_relay_state && status.actual_relay_state.light} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.light !== status.actual_relay_state.light} onToggle={(v) => toggleControl('light', v)} color="yellow" title="Toggle Underwater LED" />
+            </div>
+
             <div className="mt-10 flex flex-wrap items-center gap-6 md:gap-0 md:space-x-8">
-              {status && status.desired_state && status.desired_state.manual_soak_active && (
+              {status && status.desired_state && (status.desired_state.manual_soak_active || status.desired_state.scheduled_session_active) && (
                 <>
                   <div className="flex flex-col group relative">
                     <span className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em]">Target Temp</span>
@@ -589,7 +613,7 @@ function App() {
               </div>
               <div className="h-14 w-px bg-white/10 mx-6 hidden md:block"></div>
               <div className="flex flex-col">
-                <span className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em]">Status</span>
+                <span className="text-slate-500 text-[10px] uppercase font-black tracking-[0.2em]">Session Status</span>
                 <div className="flex items-center space-x-4 mt-1">
                   <span className={`text-2xl font-black ${isHeaterOn ? 'text-orange-400 animate-pulse' : 'text-emerald-400'}`}>{isHeaterOn ? 'Heating...' : 'Ready'}</span>
                   {status?.desired_state?.manual_soak_active ? (
@@ -604,18 +628,18 @@ function App() {
                 </div>
               </div>
             </div>
-            {role !== 'viewer' && (!status || !status.desired_state || !status.desired_state.manual_soak_active) && (
-              <div className="mt-8 p-6 glass-inset rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            {role !== 'viewer' && (!status || !status.desired_state || (!status.desired_state.manual_soak_active && !status.desired_state.scheduled_session_active)) && (
+              <div className="mt-8 p-6 glass-inset rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 w-full">
                 <div className="flex items-center space-x-4"><div className={`p-3 rounded-2xl bg-orange-500/10 ${isHeaterOn ? 'animate-pulse' : ''}`}><Zap className="text-orange-400 w-6 h-6" /></div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Soak Now!</h3></div>
                 <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target); startSoak(fd.get('temp'), fd.get('duration')); }} className="flex items-center space-x-4 w-full sm:w-auto">
-                  <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Temp</span><input name="temp" type="number" step="0.5" defaultValue={settings ? settings.default_soak_temp : 104} className="w-20 glass-inset rounded-xl text-sm p-3 text-orange-400 font-black outline-none" title="Set target temperature for this soak" /></div>
-                  <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Min</span><input name="duration" type="number" defaultValue={settings ? settings.default_soak_duration : 60} className="w-20 glass-inset rounded-xl text-sm p-3 text-slate-300 font-black outline-none" title="Set duration in minutes" /></div>
-                  <button type="submit" className="flex-1 sm:flex-none h-12 bg-orange-600/80 hover:bg-orange-600 backdrop-blur-xl text-white text-xs font-black uppercase px-8 rounded-2xl transition shadow-lg active:scale-95" title="Begin a manual soak session immediately">Start Soak!</button>
+                  <div className="flex flex-col flex-1 sm:flex-none"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Temp</span><input name="temp" type="number" step="0.5" defaultValue={settings ? settings.default_soak_temp : 104} className="w-full sm:w-20 glass-inset rounded-xl text-sm p-3 text-orange-400 font-black outline-none" title="Set target temperature for this soak" /></div>
+                  <div className="flex flex-col flex-1 sm:flex-none"><span className="text-[10px] text-slate-500 uppercase font-black ml-1">Min</span><input name="duration" type="number" defaultValue={settings ? settings.default_soak_duration : 60} className="w-full sm:w-20 glass-inset rounded-xl text-sm p-3 text-slate-300 font-black outline-none" title="Set duration in minutes" /></div>
+                  <button type="submit" className="flex-2 sm:flex-none h-12 bg-orange-600/80 hover:bg-orange-600 backdrop-blur-xl text-white text-xs font-black uppercase px-8 rounded-2xl transition shadow-lg active:scale-95" title="Begin a manual soak session immediately">Start!</button>
                 </form>
               </div>
             )}
           </div>
-          <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest" title="Change the timeframe displayed on the graph"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
+          <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest" title="Change the timeframe displayed on the graph"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
           {weather && weather.daily && <div className="mt-8 pt-8 border-t border-white/10"><h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest text-center md:text-left">7-Day Forecast</h3><div className="flex lg:grid lg:grid-cols-7 gap-5 overflow-x-auto lg:overflow-visible pb-6 custom-scrollbar">{weather.daily.time.slice(0, 7).map((date, idx) => (<a key={date} href={getWeatherLink()} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 w-32 lg:w-auto flex flex-col items-center p-5 rounded-[2rem] glass-inset shadow-xl transition-all hover:scale-105 hover:bg-white/5" title={`View details for ${new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'long' })}`}><span className="text-[10px] text-slate-400 uppercase font-black mb-5 tracking-tighter">{new Date(date + "T00:00:00").toLocaleDateString([], { weekday: 'short' })}</span><div className="mb-5 text-blue-400">{React.cloneElement(getWeatherIcon(weather.daily.weather_code[idx]), { size: 48 })}</div><div className="flex flex-col items-center"><span className="text-2xl font-black text-white">{weather.daily.temperature_2m_max[idx].toFixed(0)}°</span><span className="text-sm text-slate-500 font-bold">{weather.daily.temperature_2m_min[idx].toFixed(0)}°</span></div></a>))}</div></div>}
         </div>
 
@@ -623,21 +647,21 @@ function App() {
           <div className="space-y-4">
             <h2 className="text-white text-xl font-bold mb-6 flex items-center uppercase tracking-tighter"><SettingsIcon className="w-5 h-5 mr-2 text-slate-400" /> Device Controls</h2>
             <StatusIndicator label="Heater" active={isHeaterOn} color="orange" isLarge={true} icon={<Zap size={20} />} />
-            <ControlToggle label="Jets" icon={<Wind />} active={status && status.actual_relay_state && status.actual_relay_state.jet_pump} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.jet_pump !== status.actual_relay_state.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" />
-            <ControlToggle label="Light" icon={<Lightbulb />} active={status && status.actual_relay_state && status.actual_relay_state.light} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.light !== status.actual_relay_state.light} onToggle={(v) => toggleControl('light', v)} color="yellow" />
+            <ControlToggle label="Jets" icon={<Wind />} active={status && status.actual_relay_state && status.actual_relay_state.jet_pump} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.jet_pump !== status.actual_relay_state.jet_pump} onToggle={(v) => toggleControl('jet_pump', v)} color="blue" title="Toggle Jet Pump" />
+            <ControlToggle label="Light" icon={<Lightbulb />} active={status && status.actual_relay_state && status.actual_relay_state.light} loading={status && status.desired_state && status.actual_relay_state && status.desired_state.light !== status.actual_relay_state.light} onToggle={(v) => toggleControl('light', v)} color="yellow" title="Toggle Light" />
             {role === 'admin' && (
               <div className="pt-4 border-t border-white/10 space-y-4">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Administrative</h3>
-                <ControlToggle label="Circ Pump" icon={<Droplets />} active={status && status.actual_relay_state && status.actual_relay_state.circ_pump} onToggle={(v) => toggleControl('circ_pump', v)} color="emerald" />
-                <ControlToggle label="Ozone" icon={<Zap />} active={status && status.actual_relay_state && status.actual_relay_state.ozone} onToggle={(v) => toggleControl('ozone', v)} color="blue" />
-                <button onClick={masterShutdown} className="w-full p-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-500 font-black uppercase tracking-tighter hover:bg-red-500/20 transition-all backdrop-blur-xl active:scale-95 shadow-xl">Master Shutdown</button>
+                <ControlToggle label="Circ Pump" icon={<Droplets />} active={status && status.actual_relay_state && status.actual_relay_state.circ_pump} onToggle={(v) => toggleControl('circ_pump', v)} color="emerald" title="Toggle Circ Pump" />
+                <ControlToggle label="Ozone" icon={<Sparkles />} active={status && status.actual_relay_state && status.actual_relay_state.ozone} onToggle={(v) => toggleControl('ozone', v)} color="blue" title="Toggle Ozone" />
+                <button onClick={masterShutdown} className="w-full p-4 rounded-2xl border border-red-500/30 bg-red-500/10 text-red-500 font-black uppercase tracking-tighter hover:bg-red-500/20 transition-all backdrop-blur-xl active:scale-95 shadow-xl" title="Emergency stop">Master Shutdown</button>
               </div>
             )}
           </div>
 
           {role !== 'viewer' && (
             <>
-              <div className="mt-8 p-6 glass-inset rounded-3xl max-h-80 overflow-y-auto custom-scrollbar shadow-inner">
+              <div className="mt-8 p-6 glass-inset rounded-3xl max-h-80 overflow-y-auto custom-scrollbar shadow-inner" title="System events">
                 <h3 className="text-base font-black text-slate-500 uppercase mb-6 tracking-widest">Recent Activity</h3>
                 <div className="space-y-4">{usageLogs.map(l => (<div key={l.id} className="text-sm border-l-4 border-blue-500/30 pl-4 py-2 hover:bg-white/5 transition-colors"><p className="text-slate-100 font-black text-base">{l.event}</p><p className="text-slate-400 text-xs truncate font-bold">{l.details}</p><p className="text-[8px] text-slate-600 italic mt-1 font-black uppercase">{new Date(l.timestamp).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', hour12: true})}</p></div>))}</div>
               </div>
@@ -646,35 +670,54 @@ function App() {
                 <div className="space-y-6 mb-6">{schedules.map(s => (
                   <div key={s.id} className="glass-panel p-5 rounded-[1.5rem] border-white/5 hover:bg-white/5 transition-all group relative overflow-hidden">
                     <div className="flex justify-between items-start">
-                      <div className="flex flex-col gap-3 flex-1 min-w-0">
-                        <span className="text-slate-100 font-black text-xl tracking-tight leading-tight">{s.name}</span>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex gap-2 items-center">
-                            {Boolean(s.jet_on) && <div className="flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/20" title="Schedule includes Jets"><Wind size={14} className="text-blue-400" /><span className="text-[9px] font-black text-blue-400 uppercase">Jets</span></div>}
-                            {Boolean(s.light_on) && <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded-lg border border-yellow-500/20" title="Schedule includes Light"><Lightbulb size={14} className="text-yellow-400" /><span className="text-[9px] font-black text-yellow-400 uppercase">Light</span></div>}
-                            {Boolean(s.ozone_on) && <div className="flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20" title="Schedule includes Ozone"><Sparkles size={14} className="text-emerald-400" /><span className="text-[9px] font-black text-emerald-400 uppercase">Ozone</span></div>}
+                      <div className="flex flex-col gap-2 flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-100 font-black text-xl tracking-tight leading-tight truncate mr-4">{s.name}</span>
+                          <span className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] opacity-40 whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                            {s.type}
+                          </span>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-3 mt-1">
+                          <div className="flex gap-2.5 items-center">
+                            {Boolean(s.jet_on) && <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20" title="Schedule includes Jets"><Wind size={14} className="text-blue-400" /><span className="text-[8px] font-black text-blue-400 uppercase">Jets</span></div>}
+                            {Boolean(s.light_on) && <div className="flex items-center gap-1 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20" title="Schedule includes Light"><Lightbulb size={14} className="text-yellow-400" /><span className="text-[8px] font-black text-yellow-400 uppercase">Light</span></div>}
+                            {Boolean(s.ozone_on) && <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20" title="Schedule includes Ozone"><Sparkles size={14} className="text-emerald-400" /><span className="text-[8px] font-black text-emerald-400 uppercase">Ozone</span></div>}
                             {s.type === 'soak' && s.target_temp && (
-                              <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded-lg border border-white/10" title="Target temperature for this soak">
+                              <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded border border-white/10" title="Target temperature for this soak">
                                 <Thermometer size={14} className="text-blue-400" />
                                 <span className="text-[10px] font-black text-slate-300 tabular-nums">{s.target_temp}°F</span>
                               </div>
                             )}
                           </div>
-                          <div className="h-4 w-px bg-white/10"></div>
+                          <div className="h-3 w-px bg-white/10 mx-1"></div>
                           <span className="text-slate-400 font-black text-xs tracking-[0.1em] uppercase">{formatTime(s.start_time)} - {formatTime(s.end_time)}</span>
-                          <span className="text-[10px] text-slate-600 font-black uppercase tracking-widest opacity-40 ml-auto">[{s.type}]</span>
+                          <div className="h-3 w-px bg-white/10 mx-1"></div>
+                          <div className="flex gap-1">
+                            {['M','T','W','T','F','S','S'].map((day, idx) => {
+                              const dayVal = (idx + 1) % 7;
+                              const isActive = String(s.days_of_week).split(',').map(Number).includes(dayVal);
+                              return (
+                                <span key={idx} className={`text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full ${isActive ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-slate-700 opacity-40'}`}>
+                                  {day}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-3 items-start ml-6">
-                        <button onClick={() => triggerSchedule(s.id)} className="p-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/20 transition-all shadow-lg active:scale-90" title="Run/Resume Now">
-                          <Play size={20} fill="currentColor" />
-                        </button>
-                        {role === 'admin' && (
-                          <div className="flex flex-col gap-2">
-                            <button onClick={() => { setEditingSchedule(s); setSelectedDays(String(s.days_of_week).split(',').map(Number)); }} className="p-2 text-blue-400 hover:text-blue-200 transition-colors" title="Edit schedule details">✎</button>
-                            <button onClick={() => deleteSchedule(s.id)} className="p-2 text-red-400 hover:text-red-200 transition-colors" title="Permanently delete this schedule">✕</button>
-                          </div>
-                        )}
+                      <div className="flex flex-col items-end gap-3 ml-6 self-center">
+                        <div className="flex gap-3">
+                          <button onClick={() => triggerSchedule(s.id)} className="p-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/20 transition-all shadow-lg active:scale-90" title="Run Now">
+                            <Play size={20} fill="currentColor" />
+                          </button>
+                          {role === 'admin' && (
+                            <div className="flex flex-col gap-1">
+                              <button onClick={() => { setEditingSchedule(s); setSelectedDays(String(s.days_of_week).split(',').map(Number)); }} className="p-1.5 text-blue-400 hover:text-blue-200 transition-colors" title="Edit">✎</button>
+                              <button onClick={() => deleteSchedule(s.id)} className="p-1.5 text-red-400 hover:text-red-200 transition-colors" title="Delete">✕</button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -704,17 +747,19 @@ function App() {
                     <div className="flex justify-between items-center px-2 py-2 glass-inset rounded-xl">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Initial State</span>
                       <div className="flex gap-4">
-                        <label className="flex items-center gap-1 cursor-pointer">
+                        <label className="flex items-center gap-1 cursor-pointer" title="Turn on jets when this schedule starts">
                           <input type="checkbox" name="jet_on" defaultChecked={editingSchedule?.jet_on} className="sr-only peer" />
                           <div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4 relative"></div>
+                          <Wind size={12} className="text-slate-400 peer-checked:text-blue-400 transition-colors" />
                           <span className="text-[8px] font-black uppercase text-slate-400 peer-checked:text-white">Jets</span>
                         </label>
-                        <label className="flex items-center gap-1 cursor-pointer">
+                        <label className="flex items-center gap-1 cursor-pointer" title="Turn on light when this schedule starts">
                           <input type="checkbox" name="light_on" defaultChecked={editingSchedule?.light_on ?? true} className="sr-only peer" />
                           <div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:bg-yellow-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4 relative"></div>
+                          <Lightbulb size={12} className="text-slate-400 peer-checked:text-yellow-400 transition-colors" />
                           <span className="text-[8px] font-black uppercase text-slate-400 peer-checked:text-white">Light</span>
                         </label>
-                        <label className="flex items-center gap-1 cursor-pointer">
+                        <label className="flex items-center gap-1 cursor-pointer" title="Turn on ozone when this schedule starts">
                           <input type="checkbox" name="ozone_on" defaultChecked={editingSchedule ? editingSchedule.ozone_on : false} className="sr-only peer" />
                           <div className="w-8 h-4 bg-slate-800 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4 relative"></div>
                           <Sparkles size={12} className="text-slate-400 peer-checked:text-emerald-400 transition-colors" />
@@ -753,6 +798,53 @@ function App() {
              {energyData ? (
                <div className="space-y-4">
                  <div className="grid grid-cols-2 gap-4"><div className="glass-inset p-4 rounded-[1.5rem] text-center shadow-inner"><span className="text-[10px] text-slate-500 uppercase block font-black mb-1">Today</span><span className="text-2xl font-black text-emerald-400 tabular-nums">${Object.values(energyData.today).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span></div><div className="glass-inset p-4 rounded-[1.5rem] text-center shadow-inner"><span className="text-[10px] text-slate-500 uppercase block font-black mb-1">Month</span><span className="text-2xl font-black text-blue-400">${Object.values(energyData.month).reduce((a, b) => a + b.cost, 0).toFixed(2)}</span></div></div>
+                 
+                 {heatingStats && (
+                   <div className="space-y-4">
+                     <div className="p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                       <div className="flex justify-between items-start mb-4">
+                         <div>
+                           <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><Thermometer size={12}/> Thermal Efficiency</h4>
+                           <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Recent Heat/Cool Rates (°F/hr)</p>
+                         </div>
+                         <div className="text-right">
+                           <span className="text-[8px] text-slate-500 font-black uppercase block mb-1">Projected Bill</span>
+                           <span className="text-xl font-black text-white tabular-nums">${heatingStats.projected_monthly_cost}</span>
+                         </div>
+                       </div>
+
+                       <div className="h-24 w-full mb-4">
+                         <ResponsiveContainer width="100%" height="100%">
+                           <BarChart data={heatingStats.histogram}>
+                             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                             <XAxis dataKey="time" hide />
+                             <YAxis hide domain={[0, 'auto']} />
+                             <Tooltip 
+                               contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                               itemStyle={{ fontSize: '10px', fontWeight: 'bold' }}
+                               labelStyle={{ display: 'none' }}
+                             />
+                             <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
+                               {heatingStats.histogram.map((entry, index) => (
+                                 <Cell key={`cell-${index}`} fill={entry.type === 'heat' ? '#f97316' : '#3b82f6'} fillOpacity={0.6} />
+                               ))}
+                             </Bar>
+                           </BarChart>
+                         </ResponsiveContainer>
+                       </div>
+
+                       <div className="flex justify-between items-center mb-2">
+                         <span className="text-[10px] text-slate-500 font-bold uppercase">Avg Heat Rise</span>
+                         <span className="text-sm font-black text-slate-200">{heatingStats.avg_heat_rate}°F / hr</span>
+                       </div>
+                       <div className="flex justify-between items-center">
+                         <span className="text-[10px] text-slate-500 font-bold uppercase">Insulation Loss</span>
+                         <span className="text-sm font-black text-blue-400">-{heatingStats.hourly_loss_at_rest}°F / hr</span>
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
                  {role === 'admin' && (
                    <div className="space-y-2 pt-4 border-t border-white/5">{Object.entries(energyData.today).map(([component, stats]) => (<div key={component} className="flex justify-between items-center text-[10px] px-2 opacity-70 font-black uppercase tracking-widest text-slate-400"><span>{component.replace('_', ' ')}</span><div className="flex items-center space-x-3"><span className="text-slate-600 italic">{(stats.runtime / 3600).toFixed(1)}h</span><span className="text-slate-200 tabular-nums font-black">${stats.cost.toFixed(2)}</span></div></div>))}</div>
                  )}
@@ -762,6 +854,34 @@ function App() {
         </div>
       </div>
       {role === 'admin' && <Terminal content={systemLogs} />}
+      
+      {showBugReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setShowBugReport(false)}></div>
+          <div className="glass-panel p-8 rounded-[2.5rem] w-full max-w-xl relative shadow-[0_0_50px_rgba(0,0,0,0.5)] border-white/20">
+            <h2 className="text-2xl font-black uppercase text-blue-400 tracking-widest mb-2 flex items-center gap-3">
+              <HelpCircle className="text-white" /> Report a Bug
+            </h2>
+            <p className="text-slate-400 text-sm mb-8 font-bold">Describe the issue and it will be sent to the system logs and GitHub.</p>
+            <form onSubmit={submitBugReport} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Subject</label>
+                <input name="title" required placeholder="What's wrong?" className="w-full glass-inset p-4 rounded-2xl text-base outline-none focus:border-blue-500 transition shadow-inner font-bold" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Details</label>
+                <textarea name="description" required rows="4" placeholder="How can I reproduce this?" className="w-full glass-inset p-4 rounded-2xl text-base outline-none focus:border-blue-500 transition shadow-inner font-bold resize-none"></textarea>
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button type="button" onClick={() => setShowBugReport(false)} className="flex-1 py-4 glass-inset hover:bg-white/5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Cancel</button>
+                <button type="submit" disabled={bugSubmitting} className="flex-2 py-4 bg-blue-600/80 hover:bg-blue-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl disabled:opacity-50">
+                  {bugSubmitting ? 'Sending...' : 'Send Report'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -777,19 +897,26 @@ function Terminal({ content }) {
 
 function StatusIndicator({ label, active, color, isLarge, icon }) {
   const colorMaps = {
-    orange: { text: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/20", glow: "bg-glow-orange", dot: "bg-orange-500", shadow: "shadow-[0_0_12px_rgba(249,115,22,0.4)]" },
-    blue: { text: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", glow: "bg-glow-blue", dot: "bg-blue-500", shadow: "shadow-[0_0_12px_rgba(59,130,246,0.4)]" },
-    yellow: { text: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20", glow: "bg-glow-yellow", dot: "bg-yellow-500", shadow: "shadow-[0_0_12px_rgba(234,179,8,0.4)]" },
-    emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", glow: "bg-glow-emerald", dot: "bg-emerald-500", shadow: "shadow-[0_0_12px_rgba(16,185,129,0.4)]" }
+    orange: { text: "text-white", bg: "bg-orange-600", border: "border-orange-400", shadow: "shadow-[0_0_30px_rgba(249,115,22,0.4)]" },
+    blue: { text: "text-white", bg: "bg-blue-600", border: "border-blue-400", shadow: "shadow-[0_0_30px_rgba(59,130,246,0.4)]" },
+    yellow: { text: "text-white", bg: "bg-yellow-600", border: "border-yellow-400", shadow: "shadow-[0_0_30px_rgba(234,179,8,0.4)]" },
+    emerald: { text: "text-white", bg: "bg-emerald-600", border: "border-emerald-400", shadow: "shadow-[0_0_30px_rgba(16,185,129,0.4)]" }
   };
   const c = colorMaps[color] || colorMaps.orange;
-  if (isLarge) return (<div className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all duration-500 glass-panel ${active ? `opacity-100 ${c.glow} ${c.border}` : 'opacity-40'}`}><div className="flex items-center"><div className={`p-3 rounded-xl ${active ? `${c.bg} ${c.text}` : 'bg-white/5 text-slate-600'}`}>{React.cloneElement(icon, { className: active ? 'animate-pulse' : '' })}</div><span className="ml-4 font-black uppercase tracking-tight text-slate-300">{label}</span></div><div className={`w-3 h-3 rounded-full ${active ? `${c.dot} animate-pulse ${c.shadow}` : 'bg-white/10'}`} /></div>);
-  return (<div className={`p-3 rounded-xl glass-inset flex flex-col items-center justify-center space-y-1 transition-all ${active ? `opacity-100 ${c.border} ${c.glow}` : 'opacity-30'}`}><div className={`w-2 h-2 rounded-full ${active ? c.dot : 'bg-white/10'} ${active ? 'animate-pulse' : ''}`} /><span className="text-[10px] font-bold uppercase text-slate-500">{label}</span></div>);
+  if (isLarge) return (<div className={`w-full flex items-center justify-between p-5 rounded-2xl transition-all duration-500 border ${active ? `opacity-100 ${c.bg} ${c.text} ${c.border} ${c.shadow}` : 'opacity-40 border-white/5 bg-slate-900/20'}`}><div className="flex items-center"><div className={`p-3 rounded-xl ${active ? `bg-white/20` : 'bg-white/5 text-slate-600'}`}>{React.cloneElement(icon, { className: active ? 'animate-pulse' : '' })}</div><span className="ml-4 font-black uppercase tracking-tight">{label}</span></div><div className={`w-3 h-3 rounded-full ${active ? `bg-white animate-pulse shadow-[0_0_10px_white]` : 'bg-white/10'}`} /></div>);
+  return (<div className={`p-3 rounded-xl flex flex-col items-center justify-center space-y-1 transition-all border ${active ? `opacity-100 ${c.bg} ${c.text} ${c.border}` : 'opacity-30 border-transparent'}`}><div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : 'bg-white/10'} ${active ? 'animate-pulse' : ''}`} /><span className="text-[10px] font-bold uppercase">{label}</span></div>);
 }
 
-function ControlToggle({ label, icon, active, onToggle, color, disabled, loading }) {
-  const colors = { orange: "bg-orange-500/10 text-orange-400 border-orange-500/30 bg-glow-orange", blue: "bg-blue-500/10 text-blue-400 border-blue-500/30 bg-glow-blue", yellow: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30 bg-glow-yellow", emerald: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 bg-glow-emerald", gray: "bg-white/5 text-slate-400 border-white/5" };
-  return (<div className="group relative"><button onClick={() => !disabled && onToggle(!active)} disabled={disabled || loading} className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all duration-500 glass-panel shadow-lg ${disabled ? 'opacity-30 cursor-not-allowed' : ''} ${active ? colors[color] : colors.gray} ${loading ? 'animate-pulse brightness-110' : ''}`}><div className="flex items-center"><div className={`p-3 rounded-xl transition-all ${active ? 'bg-white/10 shadow-lg' : 'bg-slate-900/40'}`}>{React.cloneElement(icon, { size: 24 })}</div><div className="flex flex-col items-start ml-4 text-left"><span className="font-black tracking-tight uppercase text-sm md:text-base">{label}</span>{loading && <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 animate-pulse">Syncing...</span>}</div></div><div className={`w-14 h-7 rounded-full relative transition-colors ${active ? 'bg-current opacity-60' : 'bg-white/10'}`}><div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-xl transition-all ${active ? 'right-1' : 'left-1'}`} /></div></button></div>);
+function ControlToggle({ label, icon, active, onToggle, color, disabled, loading, title }) {
+  const colors = { 
+    orange: { glow: "shadow-[0_0_40px_rgba(249,115,22,0.2)] border-orange-500/40", thumb: "bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.6)]", track: "bg-orange-500/20" }, 
+    blue: { glow: "shadow-[0_0_40px_rgba(59,130,246,0.2)] border-blue-500/40", thumb: "bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.6)]", track: "bg-blue-500/20" }, 
+    yellow: { glow: "shadow-[0_0_40px_rgba(234,179,8,0.2)] border-yellow-500/40", thumb: "bg-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.6)]", track: "bg-yellow-500/20" }, 
+    emerald: { glow: "shadow-[0_0_40px_rgba(16,185,129,0.2)] border-emerald-500/40", thumb: "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.6)]", track: "bg-emerald-500/20" }, 
+    gray: { glow: "border-white/10", thumb: "bg-white/20", track: "bg-black/40" } 
+  };
+  const c = active ? colors[color] : colors.gray;
+  return (<div className="group relative"><button onClick={() => !disabled && onToggle(!active)} disabled={disabled || loading} className={`w-full flex items-center justify-between p-5 rounded-2xl border transition-all duration-500 shadow-xl ${disabled ? 'opacity-30 cursor-not-allowed' : ''} bg-slate-900/40 ${c.glow} ${loading ? 'animate-pulse brightness-110' : ''} backdrop-blur-3xl`} title={title}><div className="flex items-center"><div className={`p-3 rounded-xl transition-all ${active ? 'bg-white/10 shadow-lg' : 'bg-slate-900/40'}`}>{React.cloneElement(icon, { size: 24, className: active ? 'text-white' : 'text-slate-400' })}</div><div className="flex flex-col items-start ml-4 text-left"><span className={`font-black tracking-tight uppercase text-sm md:text-base ${active ? 'text-white' : 'text-slate-300'}`}>{label}</span>{loading && <span className="text-[10px] font-black uppercase tracking-widest text-white/60 animate-pulse">Syncing...</span>}</div></div><div className={`w-14 h-7 rounded-full relative transition-colors ${c.track} border border-white/10`}><div className={`absolute top-1 w-5 h-5 rounded-full shadow-xl transition-all ${active ? `right-1 ${c.thumb}` : 'left-1 bg-white/20'}`} /></div></button></div>);
 }
 
 function WaterBackground({ active }) {

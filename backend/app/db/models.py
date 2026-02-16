@@ -47,6 +47,17 @@ class EnergyLog(Base):
     kwh_used = Column(Float, default=0.0)
     estimated_cost = Column(Float, default=0.0)
 
+class HeatingEvent(Base):
+    __tablename__ = "heating_events"
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    event_type = Column(String, default="heat") # "heat" or "cool"
+    start_temp = Column(Float)
+    target_temp = Column(Float)
+    duration_seconds = Column(Float)
+    outside_temp = Column(Float, nullable=True)
+    efficiency_score = Column(Float, nullable=True) # Degrees per hour (negative for cooling)
+
 class Schedule(Base):
     __tablename__ = "schedules"
     id = Column(Integer, primary_key=True, index=True)

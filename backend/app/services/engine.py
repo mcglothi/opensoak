@@ -38,6 +38,12 @@ class HotTubEngine:
         self.last_energy_log_time = time.time()
         self.energy_log_interval = 3600 # Log energy every hour
 
+        # Heating/Cooling Performance Tracking
+        self.active_heating_event = None # { "start_time": t, "start_temp": x, "target": y }
+        self.active_cooling_event = None # { "start_time": t, "start_temp": x, "target": y }
+        self.last_target_temp = None
+        self.last_heater_on = False
+
     def start(self):
         self.running = True
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -84,6 +90,35 @@ class HotTubEngine:
         except Exception as e:
             print(f"Error logging energy: {e}")
 
+    def _log_thermal_event(self, db, event_type, start_temp, target_temp, duration):
+        try:
+            # Fetch current weather for correlation
+            outside_temp = None
+            try:
+                from .status import get_weather
+                import asyncio
+                weather = asyncio.run(get_weather(db))
+                if "current" in weather:
+                    outside_temp = weather["current"]["temperature_2m"]
+            except: pass
+
+            from ..db.models import HeatingEvent
+            efficiency = (target_temp - start_temp) / (duration / 3600)
+            
+            event = HeatingEvent(
+                event_type=event_type,
+                start_temp=start_temp,
+                target_temp=target_temp,
+                duration_seconds=duration,
+                outside_temp=outside_temp,
+                efficiency_score=efficiency
+            )
+            db.add(event)
+            db.commit()
+            print(f"DEBUG: Thermal {event_type} event logged. {abs(efficiency):.2f}F/hr")
+        except Exception as e:
+            print(f"Error logging thermal event: {e}")
+
     def _run(self):
         while self.running:
             try:
@@ -115,7 +150,41 @@ class HotTubEngine:
 
             self.current_temp = self.controller.get_temperature(0)
             self.hi_limit_temp = self.controller.get_temperature(1)
+            is_heater_currently_on = self.controller.get_relay_state(self.controller.HEATER)
             
+            # --- THERMAL PERFORMANCE TRACKING ---
+            current_target = settings.set_point
+            
+            # 1. Detection: Start Heating
+            if self.last_target_temp is not None and current_target > self.last_target_temp + 2.0:
+                self.active_heating_event = { "start_time": time.time(), "start_temp": self.current_temp, "target": current_target }
+                self.active_cooling_event = None # Can't cool while heating
+            
+            # 2. Detection: Start Cooling (Heater just turned off)
+            if self.last_heater_on and not is_heater_currently_on:
+                self.active_cooling_event = { "start_time": time.time(), "start_temp": self.current_temp }
+                self.active_heating_event = None
+
+            self.last_target_temp = current_target
+            self.last_heater_on = is_heater_currently_on
+
+            # 3. Processing: Heating Progress
+            if self.active_heating_event:
+                if self.current_temp >= self.active_heating_event["target"]:
+                    duration = time.time() - self.active_heating_event["start_time"]
+                    self._log_thermal_event(db, "heat", self.active_heating_event["start_temp"], self.active_heating_event["target"], duration)
+                    self.active_heating_event = None
+
+            # 4. Processing: Cooling Progress
+            # We log a cooling event if it has cooled at least 1.0 degree
+            if self.active_cooling_event:
+                temp_drop = self.active_cooling_event["start_temp"] - self.current_temp
+                if temp_drop >= 1.0:
+                    duration = time.time() - self.active_cooling_event["start_time"]
+                    self._log_thermal_event(db, "cool", self.active_cooling_event["start_temp"], self.current_temp, duration)
+                    # Reset start point to track the NEXT degree of cooling
+                    self.active_cooling_event = { "start_time": time.time(), "start_temp": self.current_temp }
+
             # --- MANUAL SOAK EXPIRATION ---
             if state.manual_soak_active and state.manual_soak_expires:
                 if datetime.now().replace(tzinfo=state.manual_soak_expires.tzinfo) > state.manual_soak_expires:

@@ -31,19 +31,19 @@
 }
 
 .bg-glow-orange {
-  box-shadow: 0 0 40px rgba(249, 115, 22, 0.2);
+  box-shadow: 0 0 50px rgba(249, 115, 22, 0.5), inset 0 0 20px rgba(249, 115, 22, 0.2);
 }
 
 .bg-glow-blue {
-  box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 50px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 .bg-glow-yellow {
-  box-shadow: 0 0 40px rgba(234, 179, 8, 0.2);
+  box-shadow: 0 0 50px rgba(234, 179, 8, 0.5), inset 0 0 20px rgba(234, 179, 8, 0.2);
 }
 
 .bg-glow-emerald {
-  box-shadow: 0 0 40px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 50px rgba(16, 185, 129, 0.5), inset 0 0 20px rgba(16, 185, 129, 0.2);
 }
 
 .custom-scrollbar::-webkit-scrollbar {

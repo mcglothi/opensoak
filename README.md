@@ -23,6 +23,9 @@ OpenSoak is a modern, open-source hot tub control system designed to run on a Ra
     -   **Configurable High-Limit:** Automatic emergency shutdown triggers if the water temperature exceeds your defined safety threshold.
 -   **Modern Dashboard:** A responsive, dark-mode web interface built with React, Tailwind CSS, and real-time animations.
 -   **Precision Control:** Hysteresis-based heating with dedicated "Rest" and "Soak" temperature modes for maximum efficiency.
+-   **Thermal Analytics:** Automatically logs heating rise rates and natural cooling loss, correlated with outside air temperature to measure insulation efficiency.
+-   **Cost Forecasting:** Predictive energy engine that projects monthly electricity bills based on active schedules, component wattages, and real-world thermal performance.
+-   **Liquid Glass UI:** A premium, glassmorphism-inspired dashboard featuring hardware-accelerated animations, real-time histograms, and a tailored mobile-first experience.
 -   **Energy Monitoring:** Comprehensive real-time tracking of component runtimes and estimated operating costs.
 -   **Automated Scheduling:** Intuitive in-app scheduler for heating, filtration (clean), and ozone purification cycles.
 -   **Hardware Emulation:** Full simulation mode allows for logic testing and UI development on any PC without physical hardware.
