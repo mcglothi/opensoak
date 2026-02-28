@@ -114,8 +114,15 @@ class HotTubEngine:
             except: pass
 
             from ..db.models import HeatingEvent
+            if duration < 60:
+                return
+
             efficiency = (target_temp - start_temp) / (duration / 3600)
-            
+
+            if event_type == "heat" and (efficiency > 20.0 or efficiency < 0):
+                return
+            if event_type == "cool" and (efficiency < -10.0 or efficiency > 0):
+                return
             event = HeatingEvent(
                 event_type=event_type,
                 start_temp=start_temp,
