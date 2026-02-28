@@ -846,7 +846,7 @@ function App() {
                             <span>{wind?.toFixed(0)} mph</span>
                           </div>
                           <div className="flex items-center gap-1 mt-0.5">
-                            <Navigation size={10} style={{ transform:  }} />
+                            <Navigation size={10} style={{ transform: `rotate(${windDir}deg)`}} />
                             <span>{getWindDirLabel(windDir)}</span>
                           </div>
                         </div>
