@@ -271,7 +271,8 @@ function App() {
           const timestamp = h.timestamp && !h.timestamp.endsWith('Z') ? `${h.timestamp}Z` : h.timestamp;
           return {
             ...h,
-            time: timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--"
+            time: timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : "--:--",
+            value: h.value
           };
         }).reverse());
       }
