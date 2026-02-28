@@ -22,6 +22,7 @@ import {
   Snowflake,
   Moon,
   Umbrella,
+  Navigation,
   HelpCircle
 } from 'lucide-react';
 import {
@@ -493,6 +494,12 @@ function App() {
     return <Cloud />;
   };
 
+  
+  const getWindDirLabel = (deg) => {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    return directions[Math.round(deg / 45) % 8];
+  };
+
   const getWeatherLink = () => `https://weather.com/weather/today/l/${settings?.location || '90210'}`;
 
   const formatTime = (timeStr) => {
@@ -806,6 +813,51 @@ function App() {
             )}
           </div>
           <div className="mt-12"><div className="flex justify-between items-center mb-4"><h3 className="text-slate-500 text-xs font-black uppercase tracking-widest">Temperature History</h3><select value={historyLimit} onChange={(e) => setHistoryLimit(parseInt(e.target.value))} className="glass-inset text-[10px] text-slate-400 rounded-lg px-3 py-1.5 outline-none font-black uppercase tracking-widest" title="Change the timeframe displayed on the graph"><option value="60">Last 1 Hour</option><option value="360">Last 6 Hours</option><option value="1440">Last 24 Hours</option></select></div><div className="h-64 w-full glass-inset rounded-2xl p-4"><ResponsiveContainer width="100%" height="100%"><LineChart data={history} margin={{ left: -20, right: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="time" hide /><YAxis domain={[70, 115]} stroke="#475569" fontSize={10} tickFormatter={(val) => `${val}°`} /><Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} itemStyle={{ color: '#60a5fa' }} /><Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={3} dot={false} animationDuration={1000} /></LineChart></ResponsiveContainer></div></div>
+          
+          {weather && weather.hourly && (
+            <div className="mt-8 pt-8 border-t border-white/10">
+              <h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest text-center md:text-left">Hourly Forecast</h3>
+              <div className="flex space-x-4 overflow-x-auto pb-6 custom-scrollbar">
+                {(() => {
+                  const now = new Date();
+                  const currentIdx = weather.hourly.time.findIndex(t => new Date(t) >= now);
+                  const startIndex = currentIdx >= 0 ? currentIdx : 0;
+                  return weather.hourly.time.slice(startIndex, startIndex + 12).map((time, idx) => {
+                    const actualIdx = startIndex + idx;
+                    const hourDate = new Date(time);
+                    const displayTime = hourDate.toLocaleTimeString([], { hour: 'numeric', hour12: true });
+                    const temp = weather.hourly.temperature_2m[actualIdx];
+                    const rain = weather.hourly.precipitation_probability[actualIdx];
+                    const wind = weather.hourly.wind_speed_10m[actualIdx];
+                    const windDir = weather.hourly.wind_direction_10m[actualIdx];
+                    const weatherCode = weather.hourly.weather_code[actualIdx];
+                    return (
+                      <div key={time} className="flex-shrink-0 w-28 flex flex-col items-center p-4 rounded-2xl glass-inset shadow-lg">
+                        <span className="text-[10px] text-slate-500 font-black uppercase mb-2">{displayTime}</span>
+                        <div className="mb-2 text-blue-400">{React.cloneElement(getWeatherIcon(weatherCode, hourDate.getHours() > 6 && hourDate.getHours() < 20), { size: 24 })}</div>
+                        <span className="text-xl font-black text-white mb-2">{temp?.toFixed(0)}°</span>
+                        <div className="flex items-center gap-1 text-[10px] text-blue-400 font-black mb-1">
+                          <Umbrella size={12} />
+                          <span>{rain}%</span>
+                        </div>
+                        <div className="flex flex-col items-center text-[8px] text-slate-500 font-bold uppercase">
+                          <div className="flex items-center gap-1">
+                            <Wind size={10} />
+                            <span>{wind?.toFixed(0)} mph</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Navigation size={10} style={{ transform:  }} />
+                            <span>{getWindDirLabel(windDir)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+
           {weather && weather.daily && <div className="mt-8 pt-8 border-t border-white/10"><h3 className="text-slate-500 text-base font-black uppercase mb-8 tracking-widest text-center md:text-left">7-Day Forecast</h3><div className="flex lg:grid lg:grid-cols-7 gap-5 overflow-x-auto lg:overflow-visible pb-6 custom-scrollbar">{weather.daily.time.slice(0, 7).map((date, idx) => (
               <a 
                 key={date} 
