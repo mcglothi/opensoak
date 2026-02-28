@@ -12,3 +12,4 @@ python-multipart
 pytest
 httpx
 pytest-asyncio
+prometheus_client

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import make_asgi_app
 from dotenv import load_dotenv
 import os
 
@@ -12,14 +13,11 @@ from .api import status, settings, control, schedules, support
 
 app = FastAPI(title="OpenSoak API")
 
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Prometheus Metrics
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
+# CORS handled by Nginx
 
 @app.on_event("startup")
 def startup_event():

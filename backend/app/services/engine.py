@@ -2,8 +2,15 @@ import threading
 import time
 import os
 from datetime import datetime
+from prometheus_client import Gauge
 from ..db.session import SessionLocal
 from ..db.models import Settings, TemperatureLog, SystemState, UsageLog, EnergyLog
+
+# Prometheus Metrics
+PROM_TEMP = Gauge('hottub_temperature_fahrenheit', 'Current hot tub water temperature')
+PROM_HI_LIMIT = Gauge('hottub_hi_limit_fahrenheit', 'Current heater hi-limit temperature')
+PROM_OUTSIDE_TEMP = Gauge('hottub_outside_temperature_fahrenheit', 'Current outside air temperature')
+PROM_RELAY = Gauge('hottub_relay_state', 'State of hot tub relays (1=ON, 0=OFF)', ['component'])
 
 class HotTubEngine:
     def __init__(self):
@@ -43,6 +50,10 @@ class HotTubEngine:
         self.active_cooling_event = None # { "start_time": t, "start_temp": x, "target": y }
         self.last_target_temp = None
         self.last_heater_on = False
+        
+        # Weather Tracking
+        self.last_weather_update = 0
+        self.weather_update_interval = 900 # Update weather every 15 minutes
 
     def start(self):
         self.running = True
@@ -152,6 +163,39 @@ class HotTubEngine:
             self.hi_limit_temp = self.controller.get_temperature(1)
             is_heater_currently_on = self.controller.get_relay_state(self.controller.HEATER)
             
+            # Update Prometheus Metrics
+            PROM_TEMP.set(self.current_temp)
+            PROM_HI_LIMIT.set(self.hi_limit_temp)
+            
+            relay_states = self.controller.get_all_states()
+            for component, is_on in relay_states.items():
+                PROM_RELAY.labels(component=component).set(1 if is_on else 0)
+
+            # --- WEATHER UPDATE ---
+            if time.time() - self.last_weather_update >= self.weather_update_interval:
+                try:
+                    import httpx
+                    if settings.location:
+                        # 1. Geocode
+                        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={settings.location}&count=1&language=en&format=json"
+                        geo_res = httpx.get(geo_url)
+                        geo_data = geo_res.json()
+                        
+                        if geo_data.get("results"):
+                            lat = geo_data["results"][0]["latitude"]
+                            lon = geo_data["results"][0]["longitude"]
+
+                            # 2. Weather
+                            weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m&temperature_unit=fahrenheit&timezone=auto"
+                            weather_res = httpx.get(weather_url)
+                            weather_data = weather_res.json()
+                            
+                            if "current" in weather_data:
+                                PROM_OUTSIDE_TEMP.set(weather_data["current"]["temperature_2m"])
+                                self.last_weather_update = time.time()
+                except Exception as e:
+                    print(f"Weather Update Error: {e}")
+
             # --- THERMAL PERFORMANCE TRACKING ---
             current_target = settings.set_point
             

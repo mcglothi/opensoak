@@ -9,6 +9,12 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
-    allowedHosts: ["opensoak", "opensoak.local", "opensoak.home.timmcg.net"]
+    allowedHosts: ["opensoak", "opensoak.local", "opensoak.home.timmcg.net"],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      }
+    }
   }
 })
