@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from ..db.session import SessionLocal
+import os
+import threading
+import time
+from ..db.session import SessionLocal, get_pool_diagnostics
 import httpx
 from ..db.models import SystemState, TemperatureLog, Settings
 from ..services.engine import engine as hottub_engine
 
 router = APIRouter()
+WEATHER_CACHE_TTL_SEC = int(os.getenv("WEATHER_CACHE_TTL_SEC", "60"))
+_weather_cache_lock = threading.Lock()
+_weather_cache = {"location": None, "expires_at": 0.0, "payload": None}
 
 def get_db():
     db = SessionLocal()
@@ -29,15 +35,29 @@ def get_status(db: Session = Depends(get_db)):
     }
 
 @router.get("/weather")
-async def get_weather(db: Session = Depends(get_db)):
-    settings = db.query(Settings).first()
+async def get_weather():
+    db = SessionLocal()
+    try:
+        settings = db.query(Settings).first()
+    finally:
+        db.close()
+
     if not settings or not settings.location:
         return {"error": "Location not set"}
+
+    now = time.time()
+    with _weather_cache_lock:
+        if (
+            _weather_cache["payload"] is not None
+            and _weather_cache["location"] == settings.location
+            and _weather_cache["expires_at"] > now
+        ):
+            return _weather_cache["payload"]
     
     try:
         # 1. Geocode Location
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={settings.location}&count=1&language=en&format=json"
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             geo_res = await client.get(geo_url)
             geo_data = geo_res.json()
             
@@ -53,14 +73,23 @@ async def get_weather(db: Session = Depends(get_db)):
             weather_res = await client.get(weather_url)
             weather_data = weather_res.json()
             
-            return {
+            payload = {
                 "city": city,
                 "current": weather_data["current"],
                 "hourly": weather_data["hourly"],
                 "daily": weather_data["daily"]
             }
+            with _weather_cache_lock:
+                _weather_cache["location"] = settings.location
+                _weather_cache["payload"] = payload
+                _weather_cache["expires_at"] = time.time() + WEATHER_CACHE_TTL_SEC
+            return payload
     except Exception as e:
         return {"error": str(e)}
+
+@router.get("/db-pool")
+def get_db_pool_stats():
+    return get_pool_diagnostics()
 
 @router.get("/history")
 def get_history(limit: int = 1440, db: Session = Depends(get_db)):

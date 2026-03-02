@@ -8,6 +8,12 @@ Group=mcglothi
 WorkingDirectory=/opt/opensoak/backend
 Environment="DATABASE_URL=sqlite:////opt/opensoak/backend/hot_tub.db"
 Environment="PYTHONPATH=/opt/opensoak/backend"
+Environment="DB_POOL_SIZE=20"
+Environment="DB_MAX_OVERFLOW=40"
+Environment="DB_POOL_TIMEOUT=30"
+Environment="DB_POOL_WARN_AT=15"
+Environment="DB_POOL_WARN_INTERVAL_SEC=30"
+Environment="WEATHER_CACHE_TTL_SEC=60"
 ExecStart=/opt/opensoak/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5

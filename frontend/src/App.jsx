@@ -144,6 +144,8 @@ function App() {
   const optimisticTempRef = useRef(null);
   const lastControlAdjRef = useRef({});
   const optimisticControlsRef = useRef({});
+  const fetchInFlightRef = useRef(false);
+  const lastWeatherFetchRef = useRef(0);
 
   // Initialize Role
   const [role, setRole] = useState(() => {
@@ -197,15 +199,21 @@ function App() {
       console.log("fetchData: apiBase is empty, skipping.");
       return;
     }
+    if (fetchInFlightRef.current) return;
+
+    fetchInFlightRef.current = true;
     console.log("fetchData: fetching from", apiBase);
     try {
+      const shouldFetchWeather = !weather || (Date.now() - lastWeatherFetchRef.current >= 60000);
       const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes, heatStatsRes] = await Promise.all([
         axios.get(`${apiBase}/status/`).catch((e) => { console.log("status failed:", e.message); return { data: null }; }),
         axios.get(`${apiBase}/settings/`).catch((e) => { console.log("settings failed:", e.message); return { data: null }; }),
         axios.get(`${apiBase}/status/history?limit=${historyLimit}`).catch(() => ({ data: [] })),
         axios.get(`${apiBase}/schedules/`).catch(() => ({ data: [] })),
         axios.get(`${apiBase}/status/logs`).catch(() => ({ data: [] })),
-        axios.get(`${apiBase}/status/weather`).catch(() => ({ data: null })),
+        shouldFetchWeather
+          ? axios.get(`${apiBase}/status/weather`).catch(() => ({ data: null }))
+          : Promise.resolve({ data: weather }),
         axios.get(`${apiBase}/status/energy`).catch(() => ({ data: null })),
         axios.get(`${apiBase}/status/heating-stats`).catch(() => ({ data: null }))
       ]);
@@ -257,7 +265,10 @@ function App() {
           return { ...l, timestamp };
         }));
       }
-      if (weatherRes.data && !weatherRes.data.error) setWeather(weatherRes.data);
+      if (weatherRes.data && !weatherRes.data.error) {
+        setWeather(weatherRes.data);
+        if (shouldFetchWeather) lastWeatherFetchRef.current = Date.now();
+      }
       if (energyRes.data && !energyRes.data.error) setEnergyData(energyRes.data);
       if (heatStatsRes.data) setHeatingStats(heatStatsRes.data);
 
@@ -305,6 +316,8 @@ function App() {
       }
     } catch (err) {
       setError(`Connection Error: ${err.message}`);
+    } finally {
+      fetchInFlightRef.current = false;
     }
   };
 
