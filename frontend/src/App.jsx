@@ -294,7 +294,7 @@ function App() {
       if (weatherRes.data && weatherRes.data.hourly && schedulesRes.data) {
         const warnings = [];
         const now = new Date();
-        const activeSchedules = schedulesRes.data.filter(s => s.active);
+        const activeSchedules = schedulesRes.data.filter(s => s.active && !isSchedulePaused(s, now));
         activeSchedules.forEach(sched => {
           if (!sched.start_time || !sched.days_of_week) return;
           const [startH] = sched.start_time.split(':').map(Number);
@@ -473,6 +473,7 @@ function App() {
   const createSchedule = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const pauseUntil = fd.get('pause_until');
     const data = { 
       name: fd.get('name'), 
       type: fd.get('type'), 
@@ -482,6 +483,7 @@ function App() {
       light_on: fd.get('light_on') === 'on',
       jet_on: fd.get('jet_on') === 'on',
       ozone_on: fd.get('ozone_on') === 'on',
+      pause_until: pauseUntil ? new Date(pauseUntil).toISOString() : null,
       days_of_week: selectedDays.join(','), 
       active: true 
     };
@@ -528,6 +530,34 @@ function App() {
     } catch { return timeStr; }
   };
 
+  const isSchedulePaused = (schedule, now = new Date()) => {
+    if (!schedule?.pause_until) return false;
+    const pauseUntil = new Date(schedule.pause_until);
+    if (Number.isNaN(pauseUntil.getTime())) return false;
+    return pauseUntil > now;
+  };
+
+  const formatPauseUntil = (pauseUntil) => {
+    if (!pauseUntil) return "";
+    const date = new Date(pauseUntil);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  const formatDateTimeLocalValue = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const localOffsetMs = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - localOffsetMs).toISOString().slice(0, 16);
+  };
+
   const getNextRun = () => {
     if (!Array.isArray(schedules) || schedules.length === 0) return null;
     const now = new Date();
@@ -536,7 +566,7 @@ function App() {
     let next = null;
     let minDiff = Infinity;
     schedules.forEach(s => {
-      if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak') return;
+      if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak' || isSchedulePaused(s, now)) return;
       try {
         const parts = s.start_time.split(':');
         const h = parseInt(parts[0]);
@@ -915,9 +945,16 @@ function App() {
                       <div className="flex flex-col gap-2 flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-100 font-black text-xl tracking-tight leading-tight truncate mr-4">{s.name}</span>
-                          <span className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] opacity-40 whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
-                            {s.type}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isSchedulePaused(s) && (
+                              <span className="text-[9px] text-amber-300 font-black uppercase tracking-[0.2em] whitespace-nowrap bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                Paused
+                              </span>
+                            )}
+                            <span className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] opacity-40 whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
+                              {s.type}
+                            </span>
+                          </div>
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-3 mt-1">
@@ -934,6 +971,14 @@ function App() {
                           </div>
                           <div className="h-3 w-px bg-white/10 mx-1"></div>
                           <span className="text-slate-400 font-black text-xs tracking-[0.1em] uppercase">{formatTime(s.start_time)} - {formatTime(s.end_time)}</span>
+                          {isSchedulePaused(s) && (
+                            <>
+                              <div className="h-3 w-px bg-white/10 mx-1"></div>
+                              <span className="text-amber-300 font-black text-[10px] tracking-[0.15em] uppercase">
+                                Until {formatPauseUntil(s.pause_until)}
+                              </span>
+                            </>
+                          )}
                           <div className="h-3 w-px bg-white/10 mx-1"></div>
                           <div className="flex gap-1">
                             {['M','T','W','T','F','S','S'].map((day, idx) => {
@@ -984,6 +1029,18 @@ function App() {
                         <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End</label>
                         <input name="end" type="time" defaultValue={editingSchedule?.end_time || "20:00"} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
                       </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Vacation Pause Until</label>
+                      <input
+                        name="pause_until"
+                        type="datetime-local"
+                        defaultValue={formatDateTimeLocalValue(editingSchedule?.pause_until)}
+                        className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none"
+                      />
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] px-1">
+                        Leave blank to keep the schedule active. Set a return date and it resumes automatically.
+                      </p>
                     </div>
                     
                     <div className="flex justify-between items-center px-2 py-2 glass-inset rounded-xl">

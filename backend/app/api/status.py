@@ -7,6 +7,7 @@ from ..db.session import SessionLocal, get_pool_diagnostics
 import httpx
 from ..db.models import SystemState, TemperatureLog, Settings
 from ..services.engine import engine as hottub_engine
+from ..services.scheduler import scheduler as hottub_scheduler
 
 router = APIRouter()
 WEATHER_CACHE_TTL_SEC = int(os.getenv("WEATHER_CACHE_TTL_SEC", "60"))
@@ -117,7 +118,9 @@ def get_heating_stats(db: Session = Depends(get_db)):
 
     # 3. Monthly Forecast Calculation
     settings = db.query(Settings).first()
-    schedules = db.query(Schedule).filter(Schedule.active == True).all()
+    all_schedules = db.query(Schedule).filter(Schedule.active == True).all()
+    now = datetime.now()
+    schedules = [sched for sched in all_schedules if not hottub_scheduler.is_schedule_paused(sched, now)]
     
     forecast_total = 0.0
     if settings:

@@ -71,6 +71,7 @@ class Schedule(Base):
     jet_on = Column(Boolean, default=False)   # User choice for soak cycles
     ozone_on = Column(Boolean, default=False) # User choice for soak cycles
     active = Column(Boolean, default=True)
+    pause_until = Column(DateTime(timezone=True), nullable=True)
 
 class SystemState(Base):
     """Stores the desired state (e.g. if the user turned the light on)"""

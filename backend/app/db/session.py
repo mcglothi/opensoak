@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 import time
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
 from .models import Base
 
@@ -85,3 +85,13 @@ def init_db():
         POOL_WARN_AT,
     )
     Base.metadata.create_all(bind=engine)
+    _apply_schema_updates()
+
+
+def _apply_schema_updates():
+    inspector = inspect(engine)
+    schedule_columns = {column["name"] for column in inspector.get_columns("schedules")}
+
+    with engine.begin() as connection:
+        if "pause_until" not in schedule_columns:
+            connection.execute(text("ALTER TABLE schedules ADD COLUMN pause_until DATETIME"))

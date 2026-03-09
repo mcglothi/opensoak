@@ -16,6 +16,21 @@ class HotTubScheduler:
     def stop(self):
         self.scheduler.shutdown()
 
+    def is_schedule_paused(self, sched, now=None):
+        if not getattr(sched, "pause_until", None):
+            return False
+
+        if now is None:
+            now = datetime.now()
+
+        pause_until = sched.pause_until
+        if pause_until.tzinfo is not None and now.tzinfo is None:
+            now = now.replace(tzinfo=pause_until.tzinfo)
+        elif pause_until.tzinfo is None and now.tzinfo is not None:
+            pause_until = pause_until.replace(tzinfo=now.tzinfo)
+
+        return now < pause_until
+
     def is_in_window(self, start_str, end_str):
         try:
             now = datetime.now()
@@ -48,6 +63,9 @@ class HotTubScheduler:
             schedules = db.query(Schedule).filter(Schedule.active == True).all()
             
             for sched in schedules:
+                if self.is_schedule_paused(sched, now):
+                    continue
+
                 days = sched.days_of_week.split(',')
                 if day_of_week in days:
                     # Regular time-based triggers
@@ -64,6 +82,10 @@ class HotTubScheduler:
             db.close()
 
     def activate_schedule(self, sched, db):
+        if self.is_schedule_paused(sched):
+            print(f"Skipping paused schedule: {sched.name}")
+            return
+
         print(f"Activating schedule: {sched.name} ({sched.type})")
         state = db.query(SystemState).first()
         settings = db.query(Settings).first()
