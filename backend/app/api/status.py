@@ -120,7 +120,8 @@ def get_heating_stats(db: Session = Depends(get_db)):
     settings = db.query(Settings).first()
     all_schedules = db.query(Schedule).filter(Schedule.active == True).all()
     now = datetime.now()
-    schedules = [sched for sched in all_schedules if not hottub_scheduler.is_schedule_paused(sched, now)]
+    active_vacations = hottub_scheduler.get_active_vacations(db, now)
+    schedules = [sched for sched in all_schedules if not hottub_scheduler.schedule_disabled_by_vacation(sched, now=now, active_vacations=active_vacations)]
     
     forecast_total = 0.0
     if settings:

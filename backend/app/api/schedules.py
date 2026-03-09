@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
 from ..db.session import SessionLocal
 from ..db.models import Schedule
 
@@ -19,7 +18,7 @@ class ScheduleCreate(BaseModel):
     jet_on: bool = False
     ozone_on: bool = False
     active: bool = True
-    pause_until: Optional[datetime] = None
+    disable_during_vacations: bool = False
 
 class ScheduleResponse(ScheduleCreate):
     id: int

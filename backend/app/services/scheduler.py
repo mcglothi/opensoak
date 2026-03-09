@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from ..db.session import SessionLocal
-from ..db.models import Schedule, SystemState, Settings, UsageLog
+from ..db.models import Schedule, SystemState, Settings, UsageLog, VacationEvent
 from datetime import datetime
 
 class HotTubScheduler:
@@ -16,20 +16,34 @@ class HotTubScheduler:
     def stop(self):
         self.scheduler.shutdown()
 
-    def is_schedule_paused(self, sched, now=None):
-        if not getattr(sched, "pause_until", None):
-            return False
+    def _normalize_compare_time(self, value, now):
+        if value.tzinfo is not None and now.tzinfo is None:
+            return now.replace(tzinfo=value.tzinfo), value
+        if value.tzinfo is None and now.tzinfo is not None:
+            return now, value.replace(tzinfo=now.tzinfo)
+        return now, value
 
+    def get_active_vacations(self, db, now=None):
         if now is None:
             now = datetime.now()
 
-        pause_until = sched.pause_until
-        if pause_until.tzinfo is not None and now.tzinfo is None:
-            now = now.replace(tzinfo=pause_until.tzinfo)
-        elif pause_until.tzinfo is None and now.tzinfo is not None:
-            pause_until = pause_until.replace(tzinfo=now.tzinfo)
+        active_vacations = []
+        vacations = db.query(VacationEvent).filter(VacationEvent.active == True).all()
+        for vacation in vacations:
+            compare_now, start_at = self._normalize_compare_time(vacation.start_at, now)
+            compare_now, end_at = self._normalize_compare_time(vacation.end_at, compare_now)
+            if start_at <= compare_now < end_at:
+                active_vacations.append(vacation)
+        return active_vacations
 
-        return now < pause_until
+    def schedule_disabled_by_vacation(self, sched, db=None, now=None, active_vacations=None):
+        if not getattr(sched, "disable_during_vacations", False):
+            return False
+        if active_vacations is None:
+            if db is None:
+                return False
+            active_vacations = self.get_active_vacations(db, now)
+        return len(active_vacations) > 0
 
     def is_in_window(self, start_str, end_str):
         try:
@@ -61,9 +75,12 @@ class HotTubScheduler:
             
             state = db.query(SystemState).first()
             schedules = db.query(Schedule).filter(Schedule.active == True).all()
+            active_vacations = self.get_active_vacations(db, now)
             
             for sched in schedules:
-                if self.is_schedule_paused(sched, now):
+                if self.schedule_disabled_by_vacation(sched, now=now, active_vacations=active_vacations):
+                    if self.is_in_window(sched.start_time, sched.end_time) and state and state.scheduled_session_active:
+                        self.deactivate_schedule(sched, db)
                     continue
 
                 days = sched.days_of_week.split(',')
@@ -82,8 +99,9 @@ class HotTubScheduler:
             db.close()
 
     def activate_schedule(self, sched, db):
-        if self.is_schedule_paused(sched):
-            print(f"Skipping paused schedule: {sched.name}")
+        active_vacations = self.get_active_vacations(db)
+        if self.schedule_disabled_by_vacation(sched, active_vacations=active_vacations):
+            print(f"Skipping schedule during vacation: {sched.name}")
             return
 
         print(f"Activating schedule: {sched.name} ({sched.type})")

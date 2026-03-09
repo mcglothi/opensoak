@@ -95,3 +95,5 @@ def _apply_schema_updates():
     with engine.begin() as connection:
         if "pause_until" not in schedule_columns:
             connection.execute(text("ALTER TABLE schedules ADD COLUMN pause_until DATETIME"))
+        if "disable_during_vacations" not in schedule_columns:
+            connection.execute(text("ALTER TABLE schedules ADD COLUMN disable_during_vacations BOOLEAN DEFAULT 0"))

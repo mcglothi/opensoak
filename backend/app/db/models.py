@@ -71,7 +71,15 @@ class Schedule(Base):
     jet_on = Column(Boolean, default=False)   # User choice for soak cycles
     ozone_on = Column(Boolean, default=False) # User choice for soak cycles
     active = Column(Boolean, default=True)
-    pause_until = Column(DateTime(timezone=True), nullable=True)
+    disable_during_vacations = Column(Boolean, default=False)
+
+class VacationEvent(Base):
+    __tablename__ = "vacation_events"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    start_at = Column(DateTime(timezone=True))
+    end_at = Column(DateTime(timezone=True))
+    active = Column(Boolean, default=True)
 
 class SystemState(Base):
     """Stores the desired state (e.g. if the user turned the light on)"""

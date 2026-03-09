@@ -9,7 +9,7 @@ load_dotenv()
 from .db.session import init_db
 from .services.engine import engine as hottub_engine
 from .services.scheduler import scheduler as hottub_scheduler
-from .api import status, settings, control, schedules, support
+from .api import status, settings, control, schedules, support, vacations
 
 app = FastAPI(title="OpenSoak API")
 
@@ -34,6 +34,7 @@ app.include_router(status.router, prefix="/api/status", tags=["status"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(control.router, prefix="/api/control", tags=["control"])
 app.include_router(schedules.router, prefix="/api/schedules", tags=["schedules"])
+app.include_router(vacations.router, prefix="/api/vacations", tags=["vacations"])
 app.include_router(support.router, prefix="/api/support", tags=["support"])
 
 @app.get("/")

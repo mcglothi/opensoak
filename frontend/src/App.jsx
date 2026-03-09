@@ -59,6 +59,7 @@ function App() {
   const [settings, setSettings] = useState(null);
   const [history, setHistory] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [vacations, setVacations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDays, setSelectedDays] = useState([0, 1, 2, 3, 4, 5, 6]);
@@ -67,6 +68,7 @@ function App() {
   const [energyData, setEnergyData] = useState(null);
   const [heatingStats, setHeatingStats] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null);
+  const [editingVacation, setEditingVacation] = useState(null);
   const [weather, setWeather] = useState(null);
   const [tempInput, setTempInput] = useState("");
   const [isEditingTemp, setIsEditingTemp] = useState(false);
@@ -205,11 +207,12 @@ function App() {
     console.log("fetchData: fetching from", apiBase);
     try {
       const shouldFetchWeather = !weather || (Date.now() - lastWeatherFetchRef.current >= 60000);
-      const [statusRes, settingsRes, historyRes, schedulesRes, logsRes, weatherRes, energyRes, heatStatsRes] = await Promise.all([
+      const [statusRes, settingsRes, historyRes, schedulesRes, vacationsRes, logsRes, weatherRes, energyRes, heatStatsRes] = await Promise.all([
         axios.get(`${apiBase}/status/`).catch((e) => { console.log("status failed:", e.message); return { data: null }; }),
         axios.get(`${apiBase}/settings/`).catch((e) => { console.log("settings failed:", e.message); return { data: null }; }),
         axios.get(`${apiBase}/status/history?limit=${historyLimit}`).catch(() => ({ data: [] })),
         axios.get(`${apiBase}/schedules/`).catch(() => ({ data: [] })),
+        axios.get(`${apiBase}/vacations/`).catch(() => ({ data: [] })),
         axios.get(`${apiBase}/status/logs`).catch(() => ({ data: [] })),
         shouldFetchWeather
           ? axios.get(`${apiBase}/status/weather`).catch(() => ({ data: null }))
@@ -259,6 +262,7 @@ function App() {
       }
       
       if (Array.isArray(schedulesRes.data)) setSchedules(schedulesRes.data);
+      if (Array.isArray(vacationsRes.data)) setVacations(vacationsRes.data);
       if (Array.isArray(logsRes.data)) {
         setUsageLogs(logsRes.data.map(l => {
           const timestamp = l.timestamp && !l.timestamp.endsWith('Z') ? `${l.timestamp}Z` : l.timestamp;
@@ -294,7 +298,8 @@ function App() {
       if (weatherRes.data && weatherRes.data.hourly && schedulesRes.data) {
         const warnings = [];
         const now = new Date();
-        const activeSchedules = schedulesRes.data.filter(s => s.active && !isSchedulePaused(s, now));
+        const fetchedVacations = Array.isArray(vacationsRes.data) ? vacationsRes.data : [];
+        const activeSchedules = schedulesRes.data.filter(s => s.active);
         activeSchedules.forEach(sched => {
           if (!sched.start_time || !sched.days_of_week) return;
           const [startH] = sched.start_time.split(':').map(Number);
@@ -304,7 +309,8 @@ function App() {
             if (fTime < now) continue;
             const fHour = fTime.getHours();
             const fDay = (fTime.getDay() + 6) % 7;
-            if (schedDays.includes(fDay) && fHour === startH) {
+            const blockedByVacation = sched.disable_during_vacations && fetchedVacations.some(vacation => isVacationAt(vacation, fTime));
+            if (schedDays.includes(fDay) && fHour === startH && !blockedByVacation) {
               const rain = weatherRes.data.hourly.precipitation_probability?.[i];
               if (rain > 40) { warnings.push({ type: 'precip', time: fTime, name: sched.name }); break; }
             }
@@ -473,7 +479,6 @@ function App() {
   const createSchedule = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const pauseUntil = fd.get('pause_until');
     const data = { 
       name: fd.get('name'), 
       type: fd.get('type'), 
@@ -483,7 +488,7 @@ function App() {
       light_on: fd.get('light_on') === 'on',
       jet_on: fd.get('jet_on') === 'on',
       ozone_on: fd.get('ozone_on') === 'on',
-      pause_until: pauseUntil ? new Date(pauseUntil).toISOString() : null,
+      disable_during_vacations: fd.get('disable_during_vacations') === 'on',
       days_of_week: selectedDays.join(','), 
       active: true 
     };
@@ -494,9 +499,32 @@ function App() {
     } catch (err) { alert(err.message); }
   };
 
+  const createVacation = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const data = {
+      name: fd.get('name'),
+      start_at: new Date(fd.get('start_at')).toISOString(),
+      end_at: new Date(fd.get('end_at')).toISOString(),
+      active: true
+    };
+    try {
+      if (editingVacation) await axios.put(`${apiBase}/vacations/${editingVacation.id}`, data, { headers: getAuthHeaders() });
+      else await axios.post(`${apiBase}/vacations/`, data, { headers: getAuthHeaders() });
+      setEditingVacation(null);
+      e.target.reset();
+      fetchData();
+    } catch (err) { alert(err.message); }
+  };
+
   const deleteSchedule = async (id) => {
     if (!window.confirm("Delete?")) return;
     try { await axios.delete(`${apiBase}/schedules/${id}`, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
+  };
+
+  const deleteVacation = async (id) => {
+    if (!window.confirm("Delete vacation?")) return;
+    try { await axios.delete(`${apiBase}/vacations/${id}`, { headers: getAuthHeaders() }); fetchData(); } catch (err) { alert(err.message); }
   };
 
   const toggleDay = (day) => setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day].sort());
@@ -530,16 +558,26 @@ function App() {
     } catch { return timeStr; }
   };
 
-  const isSchedulePaused = (schedule, now = new Date()) => {
-    if (!schedule?.pause_until) return false;
-    const pauseUntil = new Date(schedule.pause_until);
-    if (Number.isNaN(pauseUntil.getTime())) return false;
-    return pauseUntil > now;
+  const isVacationAt = (vacation, atTime = new Date()) => {
+    if (!vacation?.start_at || !vacation?.end_at || vacation.active === false) return false;
+    const startAt = new Date(vacation.start_at);
+    const endAt = new Date(vacation.end_at);
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) return false;
+    return startAt <= atTime && atTime < endAt;
   };
 
-  const formatPauseUntil = (pauseUntil) => {
-    if (!pauseUntil) return "";
-    const date = new Date(pauseUntil);
+  const isVacationActive = (vacation, now = new Date()) => isVacationAt(vacation, now);
+
+  const getActiveVacations = (now = new Date()) => vacations.filter(vacation => isVacationAt(vacation, now));
+
+  const isScheduleSuppressed = (schedule, atTime = new Date()) => {
+    if (!schedule?.disable_during_vacations) return false;
+    return vacations.some(vacation => isVacationAt(vacation, atTime));
+  };
+
+  const formatDateTimeDisplay = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
     return date.toLocaleString([], {
       month: 'short',
@@ -548,6 +586,11 @@ function App() {
       hour: 'numeric',
       minute: '2-digit'
     });
+  };
+
+  const formatVacationRange = (vacation) => {
+    if (!vacation) return "";
+    return `${formatDateTimeDisplay(vacation.start_at)} - ${formatDateTimeDisplay(vacation.end_at)}`;
   };
 
   const formatDateTimeLocalValue = (value) => {
@@ -566,7 +609,7 @@ function App() {
     let next = null;
     let minDiff = Infinity;
     schedules.forEach(s => {
-      if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak' || isSchedulePaused(s, now)) return;
+      if (!s.active || !s.start_time || !s.days_of_week || s.type !== 'soak') return;
       try {
         const parts = s.start_time.split(':');
         const h = parseInt(parts[0]);
@@ -577,6 +620,8 @@ function App() {
           let dayDiff = day - currentDay;
           if (dayDiff < 0 || (dayDiff === 0 && sTime <= currentTime)) dayDiff += 7;
           const totalDiff = dayDiff * 1440 + (sTime - currentTime);
+          const candidate = new Date(now.getTime() + totalDiff * 60000);
+          if (isScheduleSuppressed(s, candidate)) return;
           if (totalDiff < minDiff) { minDiff = totalDiff; next = { ...s, dayDiff }; }
         });
       } catch {}
@@ -644,6 +689,7 @@ function App() {
 
   const currentTemp = lastValidTemp;
   const isHeaterOn = status && status.actual_relay_state && status.actual_relay_state.heater;
+  const activeVacations = getActiveVacations();
   const nextRunText = getNextRun();
 
   if (role === 'viewer') {
@@ -946,9 +992,14 @@ function App() {
                         <div className="flex items-center justify-between">
                           <span className="text-slate-100 font-black text-xl tracking-tight leading-tight truncate mr-4">{s.name}</span>
                           <div className="flex items-center gap-2">
-                            {isSchedulePaused(s) && (
+                            {isScheduleSuppressed(s) && (
                               <span className="text-[9px] text-amber-300 font-black uppercase tracking-[0.2em] whitespace-nowrap bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                                Paused
+                                Vacation Hold
+                              </span>
+                            )}
+                            {s.disable_during_vacations && !isScheduleSuppressed(s) && (
+                              <span className="text-[9px] text-sky-300 font-black uppercase tracking-[0.2em] whitespace-nowrap bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
+                                Away Off
                               </span>
                             )}
                             <span className="text-[9px] text-slate-600 font-black uppercase tracking-[0.2em] opacity-40 whitespace-nowrap bg-white/5 px-2 py-0.5 rounded-full border border-white/5">
@@ -971,11 +1022,11 @@ function App() {
                           </div>
                           <div className="h-3 w-px bg-white/10 mx-1"></div>
                           <span className="text-slate-400 font-black text-xs tracking-[0.1em] uppercase">{formatTime(s.start_time)} - {formatTime(s.end_time)}</span>
-                          {isSchedulePaused(s) && (
+                          {s.disable_during_vacations && (
                             <>
                               <div className="h-3 w-px bg-white/10 mx-1"></div>
-                              <span className="text-amber-300 font-black text-[10px] tracking-[0.15em] uppercase">
-                                Until {formatPauseUntil(s.pause_until)}
+                              <span className={`${isScheduleSuppressed(s) ? 'text-amber-300' : 'text-sky-300'} font-black text-[10px] tracking-[0.15em] uppercase`}>
+                                {isScheduleSuppressed(s) ? `Blocked By ${activeVacations[0]?.name || 'Vacation'}` : 'Skips Vacations'}
                               </span>
                             </>
                           )}
@@ -1010,6 +1061,66 @@ function App() {
                   </div>
                 ))}</div>
                 {role === 'admin' && (
+                  <div className="mb-8 p-5 glass-panel rounded-[1.5rem] border-white/5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-300 uppercase tracking-[0.18em]">Vacation Calendar</h4>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.12em] mt-1">Schedules marked "disable during vacations" will skip these windows.</p>
+                      </div>
+                      {activeVacations.length > 0 && (
+                        <span className="text-[9px] text-amber-300 font-black uppercase tracking-[0.18em] bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                          Active Now
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-3 mb-5">
+                      {vacations.length === 0 && (
+                        <div className="text-[10px] text-slate-500 font-black uppercase tracking-[0.18em] px-1 py-3">No vacations scheduled.</div>
+                      )}
+                      {vacations.map(vacation => (
+                        <div key={vacation.id} className="flex items-center justify-between gap-4 p-4 glass-inset rounded-2xl">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-slate-100 font-black text-sm truncate">{vacation.name}</span>
+                              {isVacationActive(vacation) && (
+                                <span className="text-[8px] text-amber-300 font-black uppercase tracking-[0.18em] bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                                  In Progress
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.12em]">{formatVacationRange(vacation)}</p>
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button onClick={() => setEditingVacation(vacation)} className="p-1.5 text-blue-400 hover:text-blue-200 transition-colors" title="Edit Vacation">✎</button>
+                            <button onClick={() => deleteVacation(vacation.id)} className="p-1.5 text-red-400 hover:text-red-200 transition-colors" title="Delete Vacation">✕</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <form key={editingVacation ? `vac-${editingVacation.id}` : 'new-vacation'} onSubmit={createVacation} className="space-y-4 pt-4 border-t border-white/10">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{editingVacation ? 'Edit Vacation' : 'Add Vacation'}</h4>
+                        {editingVacation && <button type="button" onClick={() => setEditingVacation(null)} className="text-xs text-red-500 font-black uppercase tracking-widest hover:text-red-400 transition-colors border-b border-red-500/20 pb-0.5">Cancel</button>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Vacation Name</label>
+                        <input name="name" defaultValue={editingVacation?.name} placeholder="Spring Trip" required className="w-full glass-inset p-3 rounded-xl text-sm outline-none focus:border-blue-500 transition shadow-inner font-bold" />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Start</label>
+                          <input name="start_at" type="datetime-local" defaultValue={formatDateTimeLocalValue(editingVacation?.start_at)} required className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End</label>
+                          <input name="end_at" type="datetime-local" defaultValue={formatDateTimeLocalValue(editingVacation?.end_at)} required className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                        </div>
+                      </div>
+                      <button type="submit" className="w-full py-3 bg-amber-600/80 hover:bg-amber-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95">{editingVacation ? 'Save Vacation' : 'Create Vacation'}</button>
+                    </form>
+                  </div>
+                )}
+                {role === 'admin' && (
                   <form key={editingSchedule ? `edit-${editingSchedule.id}` : 'new-schedule'} onSubmit={createSchedule} className="pt-8 border-t border-white/10 space-y-6">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-base font-black text-slate-500 uppercase tracking-widest">
@@ -1030,18 +1141,16 @@ function App() {
                         <input name="end" type="time" defaultValue={editingSchedule?.end_time || "20:00"} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Vacation Pause Until</label>
-                      <input
-                        name="pause_until"
-                        type="datetime-local"
-                        defaultValue={formatDateTimeLocalValue(editingSchedule?.pause_until)}
-                        className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none"
-                      />
-                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] px-1">
-                        Leave blank to keep the schedule active. Set a return date and it resumes automatically.
-                      </p>
-                    </div>
+                    <label className="flex items-center justify-between px-4 py-3 glass-inset rounded-xl cursor-pointer" title="Skip this schedule whenever a vacation calendar event is active">
+                      <div>
+                        <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest block">Disable During Vacations</span>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.12em]">Use the vacation calendar below to define away periods.</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <input type="checkbox" name="disable_during_vacations" defaultChecked={editingSchedule?.disable_during_vacations} className="sr-only peer" />
+                        <div className="w-10 h-5 bg-slate-800 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5 relative"></div>
+                      </div>
+                    </label>
                     
                     <div className="flex justify-between items-center px-2 py-2 glass-inset rounded-xl">
                       <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Initial State</span>
