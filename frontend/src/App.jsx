@@ -502,10 +502,14 @@ function App() {
   const createVacation = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const startDate = String(fd.get('start_date') || "");
+    const startTime = String(fd.get('start_time') || "00:00");
+    const endDate = String(fd.get('end_date') || "");
+    const endTime = String(fd.get('end_time') || "00:00");
     const data = {
       name: fd.get('name'),
-      start_at: new Date(fd.get('start_at')).toISOString(),
-      end_at: new Date(fd.get('end_at')).toISOString(),
+      start_at: `${startDate}T${startTime}:00`,
+      end_at: `${endDate}T${endTime}:00`,
       active: true
     };
     try {
@@ -591,6 +595,30 @@ function App() {
   const formatVacationRange = (vacation) => {
     if (!vacation) return "";
     return `${formatDateTimeDisplay(vacation.start_at)} - ${formatDateTimeDisplay(vacation.end_at)}`;
+  };
+
+  const formatDateInputValue = (value) => {
+    if (!value) return "";
+    const raw = String(value).replace(" ", "T");
+    if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(raw)) {
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return "";
+      const localOffsetMs = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - localOffsetMs).toISOString().slice(0, 10);
+    }
+    return raw.slice(0, 10);
+  };
+
+  const formatTimeInputValue = (value, fallback = "00:00") => {
+    if (!value) return fallback;
+    const raw = String(value).replace(" ", "T");
+    if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(raw)) {
+      const date = new Date(raw);
+      if (Number.isNaN(date.getTime())) return fallback;
+      const localOffsetMs = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - localOffsetMs).toISOString().slice(11, 16);
+    }
+    return raw.slice(11, 16) || fallback;
   };
 
   const formatDateTimeLocalValue = (value) => {
@@ -1108,14 +1136,27 @@ function App() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Start</label>
-                          <input name="start_at" type="datetime-local" defaultValue={formatDateTimeLocalValue(editingVacation?.start_at)} required className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Start Day</label>
+                          <input name="start_date" type="date" defaultValue={formatDateInputValue(editingVacation?.start_at)} required className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End</label>
-                          <input name="end_at" type="datetime-local" defaultValue={formatDateTimeLocalValue(editingVacation?.end_at)} required className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End Day</label>
+                          <input name="end_date" type="date" defaultValue={formatDateInputValue(editingVacation?.end_at)} required className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
                         </div>
                       </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">Start Time</label>
+                          <input name="start_time" type="time" defaultValue={formatTimeInputValue(editingVacation?.start_at)} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500 uppercase font-black ml-1 tracking-widest">End Time</label>
+                          <input name="end_time" type="time" defaultValue={formatTimeInputValue(editingVacation?.end_at)} className="w-full glass-inset p-3 rounded-xl text-sm font-black outline-none" />
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] px-1">
+                        Dates use the native calendar picker. Times default to midnight unless you need more precision.
+                      </p>
                       <button type="submit" className="w-full py-3 bg-amber-600/80 hover:bg-amber-600 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95">{editingVacation ? 'Save Vacation' : 'Create Vacation'}</button>
                     </form>
                   </div>
