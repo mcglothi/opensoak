@@ -4,7 +4,7 @@
   <img src="docs/hero-graphic.png" alt="OpenSoak" width="1000" />
 </p>
 
-OpenSoak is a modern, open-source hot tub control system designed to run on a Raspberry Pi. It replaces traditional hardware controllers with a safety-first Python engine, a robust FastAPI REST API, and a beautiful React-based web dashboard.
+OpenSoak is a modern, open-source hot tub control system designed to run on a Raspberry Pi. It replaces traditional spa pack interfaces with a safety-first Python control engine, a FastAPI backend, and a polished multi-mode dashboard for everyday control, deep admin access, and glanceable viewer displays.
 
 ## 📸 Screenshots
 
@@ -14,27 +14,27 @@ OpenSoak is a modern, open-source hot tub control system designed to run on a Ra
 | <a href="docs/screenshots/Screenshot-User.png"><img src="docs/screenshots/Screenshot-User.png" width="300" alt="User Mode" /></a> | <a href="docs/screenshots/Screenshot-Admin.png"><img src="docs/screenshots/Screenshot-Admin.png" width="300" alt="Admin Mode" /></a> | <a href="docs/screenshots/Screenshot-Viewer.png"><img src="docs/screenshots/Screenshot-Viewer.png" width="300" alt="Viewer Mode" /></a> |
 
 ### Mobile Experience
-| Mobile View 1 | Mobile View 2 |
+| Mobile Admin View 1 | Mobile Admin View 2 |
 | :---: | :---: |
-| <a href="docs/screenshots/Screenshot-Mobile-Admin1.png"><img src="docs/screenshots/Screenshot-Mobile-Admin1.png" width="180" alt="Mobile View 1" /></a> | <a href="docs/screenshots/Screenshot-Mobile-Admin2.png"><img src="docs/screenshots/Screenshot-Mobile-Admin2.png" width="180" alt="Mobile View 2" /></a> |
+| <a href="docs/screenshots/Screenshot-Mobile-Admin1.png"><img src="docs/screenshots/Screenshot-Mobile-Admin1.png" width="180" alt="Mobile Admin View 1" /></a> | <a href="docs/screenshots/Screenshot-Mobile-Admin2.png"><img src="docs/screenshots/Screenshot-Mobile-Admin2.png" width="180" alt="Mobile Admin View 2" /></a> |
 
 ## 🚀 Features
 
--   **Safety-First Engineering:** 
-    -   **Heater Interlock:** Intelligent software and hardware logic prevents the heater from engaging without verified water flow and an active circulation pump.
-    -   **Configurable High-Limit:** Automatic emergency shutdown triggers if the water temperature exceeds your defined safety threshold.
--   **Modern Dashboard:** A responsive, dark-mode web interface built with React, Tailwind CSS, and real-time animations.
--   **Precision Control:** Hysteresis-based heating with dedicated "Rest" and "Soak" temperature modes for maximum efficiency.
--   **Thermal Analytics:** Automatically logs heating rise rates and natural cooling loss, correlated with outside air temperature to measure insulation efficiency.
--   **Cost Forecasting:** Predictive energy engine that projects monthly electricity bills based on active schedules, component wattages, and real-world thermal performance.
--   **Liquid Glass UI:** A premium, glassmorphism-inspired dashboard featuring hardware-accelerated animations, real-time histograms, and a tailored mobile-first experience.
--   **Energy Monitoring:** Comprehensive real-time tracking of component runtimes and estimated operating costs.
--   **Automated Scheduling:** Intuitive in-app scheduler for heating, filtration (clean), and ozone purification cycles.
--   **Hardware Emulation:** Full simulation mode allows for logic testing and UI development on any PC without physical hardware.
--   **Android TV & Home Theater:**
-    -   **Native TV App:** Optimized for NVIDIA Shield and other Android TV devices with full D-pad remote navigation and high-legibility "Viewer" mode.
-    -   **Command Center Widget:** A sophisticated, information-dense home screen widget for 10-foot viewing, featuring a 5-hour hourly weather forecast, real-time spa temperature, and active session countdowns.
-    -   **Connection Management:** Seamlessly switch between multiple OpenSoak backend hosts directly within the native app.
+- **Safety-first control logic:** Heater interlock, configurable high-limit protection, flow-aware shutdowns, and an admin master shutdown path are built into the control stack.
+- **Three tailored interfaces:** Dedicated `Viewer`, `User`, and `Admin` modes let the same system work as a 10-foot display, a daily control surface, or a full operations console.
+- **Precision soak control:** Hysteresis-based temperature management supports separate rest and soak targets, live timer adjustments, quick session extensions, and one-tap session stop controls.
+- **Weather-aware dashboard:** Current conditions, hourly forecast, and 7-day outlook are integrated directly into the spa UI for planning sessions around real conditions.
+- **Rich scheduling engine:** Create soak sessions, clean cycles, and ozone runs with day-of-week scheduling, run-now actions, and schedule-specific device settings.
+- **Vacation scheduling:** Mark away windows so recurring soak schedules can automatically skip while you are out of town.
+- **Electric cost analysis:** Track real-time runtime by component and estimate daily, monthly, and all-time operating cost from your configured wattage and local kWh pricing.
+- **Thermal efficiency analytics:** OpenSoak logs heat-up and cool-down behavior, estimates insulation loss, charts recent thermal performance, and projects monthly cost from real-world system behavior.
+- **Admin observability:** Recent activity, support logs, schedule management, vacation management, and system settings are all available from the dashboard instead of requiring SSH for routine checks.
+- **Mobile-first glass UI:** The React frontend is optimized for phones, tablets, and desktop displays with a polished, high-contrast interface and real-time status feedback.
+- **Hardware emulation:** A full simulation mode makes it possible to test logic, analytics, and UI flows on a regular computer without attached spa hardware.
+- **Android TV & home theater support:**
+  - **Native TV app:** Optimized for NVIDIA Shield and other Android TV devices with D-pad navigation and a clean viewer-first layout.
+  - **Command center widget:** A high-legibility home screen widget surfaces temperature, countdown, and forecast data at a glance.
+  - **Multi-host connectivity:** The Android client can discover or manually switch between multiple OpenSoak backends.
 
 ## 🛠 Hardware Architecture
 
